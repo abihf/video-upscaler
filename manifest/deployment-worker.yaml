@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-upscaler-worker
+spec:
+  selector:
+    matchLabels:
+      app: video-upscaler
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: video-upscaler
+        role: worker
+    spec:
+      containers:
+        - name: worker
+          image: docker.io/abihf/video-upscaler:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1G
+            limits:
+              memory: "6G"
+              cpu: "12"
+          env:
+            - name: REDIS_ADDR
+              value: redis:6379
+          volumeMounts:
+            - mountPath: /media/data
+              name: media
+      volumes:
+        - name: media
+          hostPath:
+            path: /media/data
+            type: Directory
