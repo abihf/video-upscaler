@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -34,14 +35,20 @@ func (s *Scanner) Scan(ctx context.Context) error {
 			In:  file,
 			Out: out,
 		})
-		logrus.WithField("in", file).Info("Add to queue")
+
 		_, err := s.AsynqClient.EnqueueContext(ctx, asynq.NewTask(model.TaskVideoUpscaleType, payload,
 			asynq.TaskID(out),
 			asynq.Timeout(3*time.Hour),
 			asynq.MaxRetry(2),
 		))
 		if err != nil {
-			logrus.WithField("in", file).WithError(err).Error("Can not add to queue")
+			if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
+				logrus.WithField("in", file).WithError(err).Debug("Already in queue")
+			} else {
+				logrus.WithField("in", file).WithError(err).Error("Can not add to queue")
+			}
+		} else {
+			logrus.WithField("in", file).Info("Added to queue")
 		}
 	}
 
@@ -64,6 +71,11 @@ func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) ([
 	hdFiles := map[string]string{}
 	uhdFilesExist := map[string]bool{}
 	for name, dirent := range dirents {
+		if name[0] == '.' {
+			// ignore dot files
+			continue
+		}
+
 		if dirent.IsDir() {
 			currentRelPath := path.Join(subDir, name)
 			subdirFiles, err := s.scanSubDir(ctx, currentRelPath, active)
