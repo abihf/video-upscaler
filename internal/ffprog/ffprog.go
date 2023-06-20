@@ -10,15 +10,20 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type metricsFn func(string)
 
 var mapping = map[string]metricsFn{
-	"fps": newFn("fps", nil),
-	"bitrate": newFn("bitrate", func(s string) string {
+	"fps": newGauge("fps", nil),
+	"bitrate": newGauge("bitrate", func(s string) string {
 		return strings.Replace(strings.TrimSpace(s), "kbits/s", "", 1)
 	}),
+	"speed": newGauge("speed", func(s string) string {
+		return s[0 : len(s)-1]
+	}),
+	"quality": newGauge("quality", nil),
 }
 
 var fileWriter *os.File
@@ -46,6 +51,10 @@ func readMetrics(r *os.File) {
 		name := splitted[0]
 		value := splitted[1]
 
+		if strings.HasPrefix(name, "stream_") && strings.HasSuffix(name, "_q") {
+			name = "quality"
+		}
+
 		fn := mapping[name]
 		if fn != nil {
 			fn(value)
@@ -53,8 +62,8 @@ func readMetrics(r *os.File) {
 	}
 }
 
-func newFn(name string, transform func(string) string) metricsFn {
-	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "ffmpeg_" + name})
+func newGauge(name string, transform func(string) string) metricsFn {
+	gauge := promauto.NewGauge(prometheus.GaugeOpts{Name: "ffmpeg_" + name})
 	return func(s string) {
 		if transform != nil {
 			s = transform(s)
@@ -65,34 +74,3 @@ func newFn(name string, transform func(string) string) metricsFn {
 		}
 	}
 }
-
-/*
-dup_frames=0
-drop_frames=0
-speed=0.394x
-progress=continue
-frame=483
-fps=9.55
-stream_0_0_q=19.0
-bitrate=6075.7kbits/s
-total_size=15204352
-out_time_us=20020000
-out_time_ms=20020000
-out_time=00:00:20.020000
-dup_frames=0
-drop_frames=0
-speed=0.396x
-progress=continue
-frame=533
-fps=9.58
-stream_0_0_q=22.0
-bitrate=5597.5kbits/s
-total_size=15466496
-out_time_us=22105000
-out_time_ms=22105000
-out_time=00:00:22.105000
-dup_frames=0
-drop_frames=0
-speed=0.397x
-progress=continue
-*/

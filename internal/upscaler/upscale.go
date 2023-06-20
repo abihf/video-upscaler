@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/abihf/video-upscaler/internal/ffprog"
+	"github.com/abihf/video-upscaler/internal/logstream"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,20 +21,8 @@ type Task struct {
 	Output  string
 	TempDir string
 
-	BackgroundFinalize bool
-
 	log     *logrus.Logger
 	logFile *os.File
-}
-
-func Demo(ctx context.Context) error {
-	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
-	t := Task{
-		Input:   "/media/data/tmp/pendek.mkv",
-		Output:  "/media/data/tmp/gede.mkv",
-		TempDir: "/media/data/tmp/upscale",
-	}
-	return t.Upscale(ctx)
 }
 
 const FramesPerPart = 1000
@@ -61,7 +50,7 @@ func (t *Task) Upscale(ctx context.Context) error {
 		return fmt.Errorf("can not create progress file %s: %w", logFileName, err)
 	}
 	defer logFile.Close()
-	defer logFile.WriteString("END\n--------------------------\n\n")
+	defer logFile.WriteString("\n -------------- CUT HERE -------------- \n\n")
 	t.logFile = logFile
 	t.log.SetOutput(io.MultiWriter(t.log.Out, t.logFile))
 
@@ -69,11 +58,6 @@ func (t *Task) Upscale(ctx context.Context) error {
 	err = t.upscaleParts(ctx, listFileName)
 	if err != nil {
 		return err
-	}
-
-	if t.BackgroundFinalize {
-		go t.finalize(context.Background(), listFileName)
-		return nil
 	}
 
 	err = t.finalize(ctx, listFileName)
@@ -98,15 +82,14 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 
 	for fi := 0; fi < totalFrame; fi += FramesPerPart {
 		partFileName := fmt.Sprintf("%s/%07d.mkv", t.TempDir, fi)
-		fmt.Fprintf(listFile, "file %s\n", partFileName)
+		fmt.Fprintf(listFile, "file '%s'\n", partFileName)
 		if fileExists(partFileName) {
 			continue
 		}
 
 		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, fi)
-		// progFileName := fmt.Sprintf("%s/%07d.ffprog", t.TempDir, fi)
 
-		t.log.WithField("in", t.Input).WithField("frame", fi).Info("Upscaling part")
+		t.log.WithField("file", partFileTemp).Info("Upscaling part")
 		err := t.upscalePart(ctx, fi, fi+FramesPerPart, partFileTemp)
 		if err != nil {
 			return err
@@ -125,28 +108,23 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) error {
 	lwi := path.Join(t.TempDir, "input.lwi")
 	vspipe := exec.CommandContext(ctx, "vspipe",
-		"-c", "y4m", "/upscale/script.vpy",
+		"-c", "y4m", "/upscale/script.vpy", "--progress",
 		"-a", "in="+t.Input,
 		"-a", "lwi="+lwi,
 		"-a", fmt.Sprintf("from=%d", from),
 		"-a", fmt.Sprintf("to=%d", to),
 		"-")
-	vspipe.Stdin = os.Stdin
-	vspipe.Stderr = os.Stderr
 
-	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "error",
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-i", "-",
-		// ffv1
-		// "-c:v", "ffv1", "-level", "3",
-		//
 		"-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow", "-rc:v", "vbr", "-qmin:v", "24", "-qmax:v", "18",
-		//
 
 		"-y", outfile)
-	ffmpeg.Stderr = os.Stderr
 	ffmpeg.Stdin, _ = vspipe.StdoutPipe()
-	ffmpeg.Stdout = os.Stdout
 	ffprog.Handle(ffmpeg)
+
+	defer t.captureOutput(vspipe)()
+	defer t.captureOutput(ffmpeg)()
 
 	errChan := make(chan error, 2)
 	go runCmd(vspipe, errChan)
@@ -165,16 +143,12 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	combinedFile := path.Join(t.TempDir, "combined.mkv")
 	t.log.WithField("target", combinedFile).Info("Combining files")
-	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "error",
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
-		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c:a", "copy",
-
-		// "-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow", "-rc:v", "vbr", "-qmin:v", "24", "-qmax:v", "20",
-		"-c:v", "copy",
+		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy",
 		"-y", combinedFile,
 	)
-	ffmpeg.Stdout = os.Stdout
-	ffmpeg.Stderr = os.Stderr
+	defer t.captureOutput(ffmpeg)()
 	ffprog.Handle(ffmpeg)
 
 	err := ffmpeg.Run()
@@ -195,7 +169,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	}
 	for _, dirent := range dirents {
 		name := dirent.Name()
-		if !dirent.IsDir() && strings.HasSuffix(".mkv", name) {
+		if !dirent.IsDir() && strings.HasSuffix(name, ".mkv") {
 			os.Remove(path.Join(t.TempDir, name))
 		}
 	}
@@ -226,4 +200,26 @@ func (t *Task) getTotalFrameStr() ([]byte, error) {
 	}
 	ioutil.WriteFile(frameCountFile, stdout, 0644)
 	return stdout, nil
+}
+
+func (t *Task) captureOutput(cmd *exec.Cmd) func() {
+	var stdout, stderr io.WriteCloser
+	if t.logFile != nil {
+		if cmd.Stdout == nil {
+			stdout = logstream.New(t.logFile, path.Base(cmd.Path))
+			cmd.Stdout = stdout
+		}
+		if cmd.Stderr == nil {
+			stderr = logstream.New(t.logFile, "!"+path.Base(cmd.Path))
+			cmd.Stderr = stderr
+		}
+	}
+	return func() {
+		if stdout != nil {
+			stdout.Close()
+		}
+		if stderr != nil {
+			stderr.Close()
+		}
+	}
 }

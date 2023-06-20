@@ -40,6 +40,7 @@ func (s *Scanner) Scan(ctx context.Context) error {
 			asynq.TaskID(out),
 			asynq.Timeout(3*time.Hour),
 			asynq.MaxRetry(2),
+			asynq.Retention(30*24*time.Hour),
 		))
 		if err != nil {
 			if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
@@ -89,29 +90,26 @@ func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) ([
 		if !active {
 			continue
 		}
-		if strings.HasSuffix(".mkv", name) {
+		if !strings.HasSuffix(name, ".mkv") {
 			// only support mkv file
 			continue
 		}
 
-		if isHdFile(name) {
-			se := getSeasonEpisode(name)
-			if se != "" {
+		// group file by season and episode
+		se := getSeasonEpisode(name)
+		if se != "" {
+			if isHdFile(name) {
 				hdFiles[se] = name
-			}
-		} else if isUhdFile(name) {
-			se := getSeasonEpisode(name)
-			if se != "" {
+			} else if isUhdFile(name) {
 				uhdFilesExist[se] = true
 			}
 		}
 	}
 
 	for se, name := range hdFiles {
-		if uhdFilesExist[se] {
-			continue
+		if !uhdFilesExist[se] {
+			upscaleFiles = append(upscaleFiles, path.Join(s.Root, subDir, name))
 		}
-		upscaleFiles = append(upscaleFiles, path.Join(s.Root, subDir, name))
 	}
 
 	return upscaleFiles, nil

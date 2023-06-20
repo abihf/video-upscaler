@@ -11,10 +11,13 @@ services:
     environment:
       - REDIS_ADDR=redis:6379
       - TEMP_DIR=/media/data/upscaler
+      - METRICS_EXPORTER=:9009
       - NVIDIA_DRIVER_CAPABILITIES=all
     user: "1000"
     group_add:
       - "1000"
+    ports:
+      - 9009:9009
     volumes:
       - /media/data:/media/data
       - /home/abi/models-cache:/models/
