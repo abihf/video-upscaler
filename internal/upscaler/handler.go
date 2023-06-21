@@ -22,7 +22,7 @@ func (h *Handler) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	var p model.VideoUpscaleTask
 	err := json.Unmarshal(t.Payload(), &p)
 	if err != nil {
-		return fmt.Errorf("can not payload json %w", err)
+		return fmt.Errorf("can not decode payload %w", err)
 	}
 
 	hash := md5.Sum([]byte(p.In))

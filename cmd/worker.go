@@ -1,6 +1,5 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-*/
+//go:build !noworker
+
 package cmd
 
 import (

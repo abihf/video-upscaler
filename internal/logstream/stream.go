@@ -1,32 +1,29 @@
 package logstream
 
 import (
-	"fmt"
 	"io"
 	"strings"
 )
 
-type Transformer struct {
-	w      io.Writer
-	prefix string
+type LineTransformer struct {
+	Callback func(line string) error
 
 	sb strings.Builder
 }
 
-func New(w io.Writer, prefix string) io.WriteCloser {
-	t := &Transformer{
-		w:      w,
-		prefix: prefix,
+func New(callback func(line string) error) io.WriteCloser {
+	t := &LineTransformer{
+		Callback: callback,
 	}
 	return t
 }
 
 // Write implements io.WriteCloser.
-func (t *Transformer) Write(data []byte) (n int, err error) {
+func (t *LineTransformer) Write(data []byte) (n int, err error) {
 	return t.WriteString(string(data))
 }
 
-func (t *Transformer) WriteString(data string) (int, error) {
+func (t *LineTransformer) WriteString(data string) (int, error) {
 	start := 0
 	for {
 		nlIndex := strings.IndexAny(data[start:], "\r\n")
@@ -39,7 +36,7 @@ func (t *Transformer) WriteString(data string) (int, error) {
 			line = t.sb.String()
 			t.sb.Reset()
 		}
-		err := t.writeLine(line)
+		err := t.Callback(line)
 		if err != nil {
 			return 0, err
 		}
@@ -55,22 +52,17 @@ func (t *Transformer) WriteString(data string) (int, error) {
 	return start + n, nil
 }
 
-func (t *Transformer) writeLine(line string) error {
-	_, err := fmt.Fprintf(t.w, "%s %s\n", t.prefix, line)
-	return err
-}
-
 // Close implements io.WriteCloser.
-func (t *Transformer) Close() error {
+func (t *LineTransformer) Close() error {
 	return t.Flush()
 }
 
 // Flush
-func (t *Transformer) Flush() error {
+func (t *LineTransformer) Flush() error {
 	if t.sb.Len() > 0 {
 		line := t.sb.String()
 		t.sb.Reset()
-		return t.writeLine(line)
+		return t.Callback(line)
 	}
 	return nil
 }

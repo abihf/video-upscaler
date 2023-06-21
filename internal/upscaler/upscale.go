@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -108,7 +107,7 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) error {
 	lwi := path.Join(t.TempDir, "input.lwi")
 	vspipe := exec.CommandContext(ctx, "vspipe",
-		"-c", "y4m", "/upscale/script.vpy", "--progress",
+		"-c", "y4m", "/upscale/script.vpy",
 		"-a", "in="+t.Input,
 		"-a", "lwi="+lwi,
 		"-a", fmt.Sprintf("from=%d", from),
@@ -118,7 +117,6 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-i", "-",
 		"-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow", "-rc:v", "vbr", "-qmin:v", "24", "-qmax:v", "18",
-
 		"-y", outfile)
 	ffmpeg.Stdin, _ = vspipe.StdoutPipe()
 	ffprog.Handle(ffmpeg)
@@ -143,6 +141,7 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	combinedFile := path.Join(t.TempDir, "combined.mkv")
 	t.log.WithField("target", combinedFile).Info("Combining files")
+	// combine the video files and merge it with original audio & subtitles
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
 		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy",
@@ -187,7 +186,7 @@ func (t *Task) getTotalFrame() (int, error) {
 
 func (t *Task) getTotalFrameStr() ([]byte, error) {
 	frameCountFile := path.Join(t.TempDir, "framecount")
-	content, err := ioutil.ReadFile(frameCountFile)
+	content, err := os.ReadFile(frameCountFile)
 	if err == nil {
 		return content, nil
 	}
@@ -198,19 +197,31 @@ func (t *Task) getTotalFrameStr() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	ioutil.WriteFile(frameCountFile, stdout, 0644)
+	os.WriteFile(frameCountFile, stdout, 0644)
 	return stdout, nil
 }
 
 func (t *Task) captureOutput(cmd *exec.Cmd) func() {
+
 	var stdout, stderr io.WriteCloser
 	if t.logFile != nil {
+		log := logrus.New()
+		log.SetOutput(t.logFile)
+		log.SetFormatter(t.log.Formatter)
+
+		appLogger := log.WithField("app", path.Base(cmd.Path))
 		if cmd.Stdout == nil {
-			stdout = logstream.New(t.logFile, path.Base(cmd.Path))
+			stdout = logstream.New(func(line string) error {
+				appLogger.Info(line)
+				return nil
+			})
 			cmd.Stdout = stdout
 		}
 		if cmd.Stderr == nil {
-			stderr = logstream.New(t.logFile, "!"+path.Base(cmd.Path))
+			stderr = logstream.New(func(line string) error {
+				appLogger.Warn(line)
+				return nil
+			})
 			cmd.Stderr = stderr
 		}
 	}

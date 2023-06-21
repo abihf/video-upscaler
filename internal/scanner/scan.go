@@ -2,6 +2,8 @@ package scanner
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/abihf/video-upscaler/internal/model"
@@ -23,68 +26,48 @@ type Scanner struct {
 }
 
 func (s *Scanner) Scan(ctx context.Context) error {
-	files, err := s.scanSubDir(ctx, "", false)
+	startTime := time.Now()
+	err := s.scanSubDir(ctx, "", false)
 	if err != nil {
 		return err
 	}
-	sort.Strings(files)
-
-	for _, file := range files {
-		out := getUhdName(file)
-		payload, _ := json.Marshal(model.VideoUpscaleTask{
-			In:  file,
-			Out: out,
-		})
-
-		_, err := s.AsynqClient.EnqueueContext(ctx, asynq.NewTask(model.TaskVideoUpscaleType, payload,
-			asynq.TaskID(out),
-			asynq.Timeout(3*time.Hour),
-			asynq.MaxRetry(2),
-			asynq.Retention(30*24*time.Hour),
-		))
-		if err != nil {
-			if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
-				logrus.WithField("in", file).WithError(err).Debug("Already in queue")
-			} else {
-				logrus.WithField("in", file).WithError(err).Error("Can not add to queue")
-			}
-		} else {
-			logrus.WithField("in", file).Info("Added to queue")
-		}
-	}
+	logrus.WithField("duration", time.Since(startTime)).Info("Done scanning")
 
 	return nil
 }
 
-func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) ([]string, error) {
+func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) error {
 	fullPath := path.Join(s.Root, subDir)
-	dirents, err := readDir(fullPath)
+	dirents, err := os.ReadDir(fullPath)
 	if err != nil {
-		return nil, fmt.Errorf("can't list dir: %w", err)
+		return fmt.Errorf("can't list dir: %w", err)
 	}
 
-	if _, ok := dirents[".upscale"]; ok {
+	if !active && hasMarkerFile(dirents) {
 		logrus.WithField("subdir", subDir).Info("Marker file .upscale found")
 		active = true
 	}
 
-	upscaleFiles := []string{}
 	hdFiles := map[string]string{}
 	uhdFilesExist := map[string]bool{}
-	for name, dirent := range dirents {
+	var wg sync.WaitGroup
+	for _, dirent := range dirents {
+		name := dirent.Name()
 		if name[0] == '.' {
 			// ignore dot files
 			continue
 		}
 
 		if dirent.IsDir() {
-			currentRelPath := path.Join(subDir, name)
-			subdirFiles, err := s.scanSubDir(ctx, currentRelPath, active)
-			if err != nil {
-				logrus.WithContext(ctx).WithError(err).WithField("path", currentRelPath).Error("Can not process subdir")
-			} else if len(subdirFiles) > 0 {
-				upscaleFiles = append(upscaleFiles, subdirFiles...)
-			}
+			wg.Add(1)
+			go func(relPath string) {
+				defer wg.Done()
+				err := s.scanSubDir(ctx, relPath, active)
+				if err != nil {
+					logrus.WithContext(ctx).WithError(err).WithField("path", relPath).Error("Can not process subdir")
+				}
+			}(path.Join(subDir, name))
+
 			continue
 		}
 		if !active {
@@ -106,13 +89,62 @@ func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) ([
 		}
 	}
 
+	upscaleFile := []string{}
 	for se, name := range hdFiles {
 		if !uhdFilesExist[se] {
-			upscaleFiles = append(upscaleFiles, path.Join(s.Root, subDir, name))
+			upscaleFile = append(upscaleFile, name)
 		}
 	}
 
-	return upscaleFiles, nil
+	// sort the list so earlier episode get upscaled first
+	sort.Strings(upscaleFile)
+
+	for _, name := range upscaleFile {
+		err := s.processFile(ctx, path.Join(s.Root, subDir, name))
+		if err != nil {
+			return err
+		}
+	}
+
+	wg.Wait()
+	return nil
+}
+
+func (s *Scanner) processFile(ctx context.Context, file string) error {
+	out := getUhdName(file)
+	payload, _ := json.Marshal(model.VideoUpscaleTask{
+		In:  file,
+		Out: out,
+	})
+
+	id := sha1.Sum([]byte(out))
+	task := asynq.NewTask(model.TaskVideoUpscaleType, payload,
+		asynq.Timeout(3*time.Hour),
+		asynq.MaxRetry(2),
+		asynq.Retention(30*24*time.Hour),
+		asynq.TaskID(base64.RawURLEncoding.EncodeToString(id[:])),
+	)
+
+	_, err := s.AsynqClient.EnqueueContext(ctx, task)
+	if err != nil {
+		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
+			logrus.WithField("in", file).WithError(err).Debug("Already in queue")
+		} else {
+			return err
+		}
+	} else {
+		logrus.WithField("in", file).Info("Added to queue")
+	}
+	return nil
+}
+
+func hasMarkerFile(list []os.DirEntry) bool {
+	for _, de := range list {
+		if de.Name() == ".upscale" {
+			return true
+		}
+	}
+	return false
 }
 
 func isHdFile(file string) bool {
@@ -125,23 +157,11 @@ func isUhdFile(file string) bool {
 
 func getUhdName(file string) string {
 	idx := strings.LastIndexByte(file, '/') + 1
-	return file[:idx] + strings.ReplaceAll(file[idx:], "1080p", "2060p")
+	return file[:idx] + strings.ReplaceAll(file[idx:], "1080p", "2160p")
 }
 
 var reEpisode = regexp.MustCompile(`(?i)S\d+E\d+(-\d+)?`)
 
 func getSeasonEpisode(file string) string {
 	return reEpisode.FindString(file)
-}
-
-func readDir(dir string) (map[string]os.DirEntry, error) {
-	contents, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	mapped := make(map[string]os.DirEntry, len(contents))
-	for _, content := range contents {
-		mapped[content.Name()] = content
-	}
-	return mapped, nil
 }
