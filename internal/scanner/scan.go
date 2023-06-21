@@ -111,11 +111,20 @@ func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) er
 }
 
 func (s *Scanner) processFile(ctx context.Context, file string) error {
+	stat, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
 	out := getUhdName(file)
 	payload, _ := json.Marshal(model.VideoUpscaleTask{
 		In:  file,
 		Out: out,
 	})
+
+	queueName := "default"
+	if time.Since(stat.ModTime()) <= 6*time.Hour {
+		queueName = "critical"
+	}
 
 	id := sha1.Sum([]byte(out))
 	task := asynq.NewTask(model.TaskVideoUpscaleType, payload,
@@ -123,9 +132,10 @@ func (s *Scanner) processFile(ctx context.Context, file string) error {
 		asynq.MaxRetry(2),
 		asynq.Retention(30*24*time.Hour),
 		asynq.TaskID(base64.RawURLEncoding.EncodeToString(id[:])),
+		asynq.Queue(queueName),
 	)
 
-	_, err := s.AsynqClient.EnqueueContext(ctx, task)
+	_, err = s.AsynqClient.EnqueueContext(ctx, task)
 	if err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
 			logrus.WithField("in", file).WithError(err).Debug("Already in queue")
