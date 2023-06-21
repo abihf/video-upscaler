@@ -162,3 +162,4 @@ COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 VOLUME [ "/models" ]
+ENV NVIDIA_DRIVER_CAPABILITIES=all

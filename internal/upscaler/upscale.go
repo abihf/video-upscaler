@@ -107,7 +107,7 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) error {
 	lwi := path.Join(t.TempDir, path.Base(t.Input)+".lwi")
 	vspipe := exec.CommandContext(ctx, "vspipe",
-		"-c", "y4m", "/upscale/script.vpy",
+		"-c", "y4m", "/upscale/script.py",
 		"-a", "in="+t.Input,
 		"-a", "lwi="+lwi,
 		"-a", fmt.Sprintf("from=%d", from),

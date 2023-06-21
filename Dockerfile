@@ -29,7 +29,7 @@ RUN chmod +x /tini
 FROM abihf/video-upscaler:base AS worker
 COPY --from=tini /tini /tini
 ENTRYPOINT ["/tini", "--"]
-COPY script.vpy models /upscale/
+COPY script.py /upscale/
 COPY --link --from=worker-build /workspace/video-upscaler /usr/bin/video-upscaler
 CMD [ "/usr/bin/video-upscaler", "worker" ]
 
