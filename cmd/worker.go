@@ -5,7 +5,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/abihf/video-upscaler/internal/model"
@@ -70,7 +70,7 @@ func runMetricsServer() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, "OK")
+		io.WriteString(w, "OK")
 	})
 	http.ListenAndServe(metricsExporterAddr, mux)
 }

@@ -2,8 +2,8 @@ package upscaler
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -25,8 +25,9 @@ func (h *Handler) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("can not decode payload %w", err)
 	}
 
-	hash := md5.Sum([]byte(p.In))
-	tempdir := path.Join(h.TempDir, hex.EncodeToString(hash[:8]), path.Base(p.In))
+	hash := sha1.Sum([]byte(p.In))
+	b64 := base64.RawURLEncoding.EncodeToString(hash[:])
+	tempdir := path.Join(h.TempDir, b64[:2], b64[2:])
 	ut := Task{
 		Input:   p.In,
 		Output:  p.Out,

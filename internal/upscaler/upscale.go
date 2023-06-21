@@ -16,15 +16,15 @@ import (
 )
 
 type Task struct {
-	Input   string
-	Output  string
-	TempDir string
+	Input  string
+	Output string
 
+	TempDir string
 	log     *logrus.Logger
 	logFile *os.File
 }
 
-const FramesPerPart = 1000
+const FramesPerPart = 1440 // about 1 minute for 24fps
 
 func (t *Task) Upscale(ctx context.Context) error {
 	t.log = logrus.New()
@@ -79,17 +79,17 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 	}
 	defer listFile.Close()
 
-	for fi := 0; fi < totalFrame; fi += FramesPerPart {
-		partFileName := fmt.Sprintf("%s/%07d.mkv", t.TempDir, fi)
+	for frameIndex := 0; frameIndex < totalFrame; frameIndex += FramesPerPart {
+		partFileName := fmt.Sprintf("%s/%07d+%d.mkv", t.TempDir, frameIndex, FramesPerPart)
 		fmt.Fprintf(listFile, "file '%s'\n", partFileName)
 		if fileExists(partFileName) {
 			continue
 		}
 
-		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, fi)
+		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, frameIndex)
 
 		t.log.WithField("file", partFileTemp).Info("Upscaling part")
-		err := t.upscalePart(ctx, fi, fi+FramesPerPart, partFileTemp)
+		err := t.upscalePart(ctx, frameIndex, frameIndex+FramesPerPart, partFileTemp)
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 }
 
 func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) error {
-	lwi := path.Join(t.TempDir, "input.lwi")
+	lwi := path.Join(t.TempDir, path.Base(t.Input)+".lwi")
 	vspipe := exec.CommandContext(ctx, "vspipe",
 		"-c", "y4m", "/upscale/script.vpy",
 		"-a", "in="+t.Input,
