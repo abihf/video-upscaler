@@ -1,5 +1,5 @@
-// ffprog package handle ffmpeg progress metrics
-package ffprog
+// ffmet package handle ffmpeg progress metrics
+package ffmet
 
 import (
 	"bufio"

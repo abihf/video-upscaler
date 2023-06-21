@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/abihf/video-upscaler/internal/ffprog"
+	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
 	"github.com/sirupsen/logrus"
 )
@@ -119,7 +119,7 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 		"-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow", "-rc:v", "vbr", "-qmin:v", "24", "-qmax:v", "18",
 		"-y", outfile)
 	ffmpeg.Stdin, _ = vspipe.StdoutPipe()
-	ffprog.Handle(ffmpeg)
+	ffmet.Handle(ffmpeg)
 
 	defer t.captureOutput(vspipe)()
 	defer t.captureOutput(ffmpeg)()
@@ -148,7 +148,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 		"-y", combinedFile,
 	)
 	defer t.captureOutput(ffmpeg)()
-	ffprog.Handle(ffmpeg)
+	ffmet.Handle(ffmpeg)
 
 	err := ffmpeg.Run()
 	if err != nil {
