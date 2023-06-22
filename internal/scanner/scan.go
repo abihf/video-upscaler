@@ -2,9 +2,6 @@ package scanner
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,10 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abihf/video-upscaler/internal/model"
+	"github.com/abihf/video-upscaler/internal/queue"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 )
+
+const MarkerFileName = ".upscale"
 
 type Scanner struct {
 	Root        string
@@ -27,13 +26,28 @@ type Scanner struct {
 
 func (s *Scanner) Scan(ctx context.Context) error {
 	startTime := time.Now()
-	err := s.scanSubDir(ctx, "", false)
+	active := s.parentHasMarker()
+	err := s.scanSubDir(ctx, "", active)
 	if err != nil {
 		return err
 	}
 	logrus.WithField("duration", time.Since(startTime)).Info("Done scanning")
 
 	return nil
+}
+
+func (s *Scanner) parentHasMarker() bool {
+	dir := s.Root
+	for {
+		if fileExists(path.Join(dir, MarkerFileName)) {
+			return true
+		}
+		parent := path.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+	return false
 }
 
 func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) error {
@@ -116,26 +130,13 @@ func (s *Scanner) processFile(ctx context.Context, file string) error {
 		return err
 	}
 	out := getUhdName(file)
-	payload, _ := json.Marshal(model.VideoUpscaleTask{
-		In:  file,
-		Out: out,
-	})
 
-	queueName := "default"
+	priority := "default"
 	if time.Since(stat.ModTime()) <= 6*time.Hour {
-		queueName = "critical"
+		priority = "critical"
 	}
 
-	id := sha1.Sum([]byte(out))
-	task := asynq.NewTask(model.TaskVideoUpscaleType, payload,
-		asynq.Timeout(3*time.Hour),
-		asynq.MaxRetry(2),
-		asynq.Retention(30*24*time.Hour),
-		asynq.TaskID(base64.RawURLEncoding.EncodeToString(id[:])),
-		asynq.Queue(queueName),
-	)
-
-	_, err = s.AsynqClient.EnqueueContext(ctx, task)
+	err = queue.Add(ctx, s.AsynqClient, file, out, priority)
 	if err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
 			logrus.WithField("in", file).WithError(err).Debug("Already in queue")
@@ -150,7 +151,7 @@ func (s *Scanner) processFile(ctx context.Context, file string) error {
 
 func hasMarkerFile(list []os.DirEntry) bool {
 	for _, de := range list {
-		if de.Name() == ".upscale" {
+		if de.Name() == MarkerFileName {
 			return true
 		}
 	}

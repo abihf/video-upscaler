@@ -7,10 +7,13 @@ import (
 	"context"
 	"os"
 
+	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
 )
 
-var redisAddr string
+var rootFlags struct {
+	redisAddr string
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -22,6 +25,7 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+	SilenceUsage: true,
 }
 
 func Execute(ctx context.Context) {
@@ -32,5 +36,12 @@ func Execute(ctx context.Context) {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&redisAddr, "redis-addr", "r", getEnv("REDIS_ADDR", "localhost:6379"), "redis address host:port")
+	rootCmd.PersistentFlags().StringVarP(&rootFlags.redisAddr, "redis-addr", "r", getEnv("REDIS_ADDR", "localhost:6379"), "redis address host:port")
+	rootCmd.RegisterFlagCompletionFunc("redis-addr", cobra.FixedCompletions(nil, cobra.ShellCompDirectiveNoFileComp))
+}
+
+func redisConn() asynq.RedisConnOpt {
+	return &asynq.RedisClientOpt{
+		Addr: rootFlags.redisAddr,
+	}
 }

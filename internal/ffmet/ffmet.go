@@ -26,9 +26,14 @@ var mapping = map[string]metricsFn{
 	"quality": newGauge("quality", nil),
 }
 
+var Active = false
 var fileWriter *os.File
 
 func Handle(cmd *exec.Cmd) error {
+	if !Active {
+		return nil
+	}
+
 	if fileWriter == nil {
 		r, w, err := os.Pipe()
 		if err != nil {

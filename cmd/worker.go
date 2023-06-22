@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/model"
 	"github.com/abihf/video-upscaler/internal/upscaler"
 	"github.com/hibiken/asynq"
@@ -16,8 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var metricsExporterAddr string
-var tempDir string
+var workerFlags struct {
+	metricsExporterAddr string
+	tempDir             string
+}
 
 // workerCmd represents the worker command
 var workerCmd = &cobra.Command{
@@ -35,7 +38,7 @@ to quickly create a Cobra application.`,
 		logrus.SetLevel(logrus.DebugLevel)
 
 		srv := asynq.NewServer(
-			asynq.RedisClientOpt{Addr: redisAddr},
+			redisConn(),
 			asynq.Config{
 				BaseContext: cmd.Context,
 				Concurrency: 1,
@@ -48,18 +51,17 @@ to quickly create a Cobra application.`,
 				ErrorHandler: asynq.ErrorHandlerFunc(func(_ context.Context, task *asynq.Task, err error) {
 					var p model.VideoUpscaleTask
 					json.Unmarshal(task.Payload(), &p)
-					// fmt.Printf("Error processing %s: %v\n", p.In, err)
 					logrus.WithError(err).WithField("task", p).Error("Error processing task")
-					// os.Remove(p.TempFile)
 				}),
 			},
 		)
 
-		if metricsExporterAddr != "" {
+		if workerFlags.metricsExporterAddr != "" {
+			ffmet.Active = true
 			go runMetricsServer()
 		}
 
-		u := upscaler.Handler{TempDir: tempDir}
+		u := upscaler.Handler{TempDir: workerFlags.tempDir}
 		mux := asynq.NewServeMux()
 		mux.Handle(model.TaskVideoUpscaleType, &u)
 		return srv.Run(mux)
@@ -72,11 +74,11 @@ func runMetricsServer() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		io.WriteString(w, "OK")
 	})
-	http.ListenAndServe(metricsExporterAddr, mux)
+	http.ListenAndServe(workerFlags.metricsExporterAddr, mux)
 }
 
 func init() {
 	rootCmd.AddCommand(workerCmd)
-	workerCmd.Flags().StringVar(&tempDir, "temp-dir", getEnv("TEMP_DIR", "/var/cache/upscalers"), "Help message for toggle")
-	workerCmd.Flags().StringVar(&metricsExporterAddr, "metrics-exporter", getEnv("METRICS_EXPORTER", ""), "Help message for toggle")
+	workerCmd.Flags().StringVar(&workerFlags.tempDir, "temp-dir", getEnv("TEMP_DIR", "/var/cache/upscalers"), "Help message for toggle")
+	workerCmd.Flags().StringVar(&workerFlags.metricsExporterAddr, "metrics-exporter", getEnv("METRICS_EXPORTER", ""), "Help message for toggle")
 }
