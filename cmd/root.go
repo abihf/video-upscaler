@@ -6,14 +6,12 @@ package cmd
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
-
-var rootFlags struct {
-	redisAddr string
-}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -36,12 +34,27 @@ func Execute(ctx context.Context) {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&rootFlags.redisAddr, "redis-addr", "r", getEnv("REDIS_ADDR", "localhost:6379"), "redis address host:port")
+	cobra.OnInitialize(initConfig)
+
+	// getEnv("REDIS_ADDR", "localhost:6379")
+	rootCmd.PersistentFlags().StringP("redis-addr", "r", "localhost:6379", "redis address host:port")
 	rootCmd.RegisterFlagCompletionFunc("redis-addr", cobra.FixedCompletions(nil, cobra.ShellCompDirectiveNoFileComp))
+	viper.BindPFlags(rootCmd.PersistentFlags())
+}
+
+func initConfig() {
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$XDG_CONFIG_HOME/video-upscaler")
+	viper.AddConfigPath("$HOME/.config/video-upscaler")
+
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+	viper.ReadInConfig()
 }
 
 func redisConn() asynq.RedisConnOpt {
 	return &asynq.RedisClientOpt{
-		Addr: rootFlags.redisAddr,
+		Addr: viper.GetString("redis-addr"),
 	}
 }

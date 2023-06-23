@@ -1,9 +1,9 @@
 .git
 .github
 .vscode
-**/*.engine
-**/*.engine.*
 /compose.yaml
 Dockerfile
 base-image
 Makefile
+/manifest
+video-upscaler

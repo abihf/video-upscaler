@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
-	"github.com/sirupsen/logrus"
 )
 
 type Task struct {
@@ -20,17 +20,15 @@ type Task struct {
 	Output string
 
 	TempDir string
-	log     *logrus.Logger
+	log     *slog.Logger
 	logFile *os.File
 }
 
 const FramesPerPart = 1440 // about 1 minute for 24fps
 
 func (t *Task) Upscale(ctx context.Context) error {
-	t.log = logrus.New()
-
 	if fileExists(t.Output) {
-		t.log.WithField("out", t.Output).WithField("in", t.Input).Warn("Output already exist, skipping upscale")
+		slog.With("out", t.Output, "in", t.Input).Warn("Output already exist, skipping upscale")
 		return nil
 	}
 
@@ -51,7 +49,7 @@ func (t *Task) Upscale(ctx context.Context) error {
 	defer logFile.Close()
 	defer logFile.WriteString("\n -------------- CUT HERE -------------- \n\n")
 	t.logFile = logFile
-	t.log.SetOutput(io.MultiWriter(t.log.Out, t.logFile))
+	t.log = slog.New(slog.NewTextHandler(io.MultiWriter(os.Stdout, t.logFile), &slog.HandlerOptions{}))
 
 	listFileName := path.Join(t.TempDir, "files.txt")
 	err = t.upscaleParts(ctx, listFileName)
@@ -88,13 +86,13 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 
 		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, frameIndex)
 
-		t.log.WithField("file", partFileTemp).Info("Upscaling part")
+		t.log.With("file", partFileTemp).Info("Upscaling part")
 		err := t.upscalePart(ctx, frameIndex, frameIndex+FramesPerPart, partFileTemp)
 		if err != nil {
 			return err
 		}
 
-		t.log.WithField("path", partFileTemp).Info("Moving temporary part file")
+		t.log.With("path", partFileTemp).Info("Moving temporary part file")
 		err = os.Rename(partFileTemp, partFileName)
 		if err != nil {
 			return err
@@ -140,7 +138,7 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 
 func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	combinedFile := path.Join(t.TempDir, "combined.mkv")
-	t.log.WithField("target", combinedFile).Info("Combining files")
+	t.log.With("target", combinedFile).Info("Combining files")
 	// combine the video files and merge it with original audio & subtitles
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
@@ -155,13 +153,13 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 		return err
 	}
 
-	t.log.WithField("temp", combinedFile).WithField("real", t.Output).Info("Moving combined files to output")
+	t.log.Info("Moving combined files to output", "temp", combinedFile, "real", t.Output)
 	err = os.Rename(combinedFile, t.Output)
 	if err != nil {
 		return err
 	}
 
-	t.log.WithField("path", t.TempDir).Info("Removing temporary video files")
+	t.log.Info("Removing temporary video files", "path", t.TempDir)
 	dirents, err := os.ReadDir(t.TempDir)
 	if err != nil {
 		return err
@@ -205,11 +203,9 @@ func (t *Task) captureOutput(cmd *exec.Cmd) func() {
 
 	var stdout, stderr io.WriteCloser
 	if t.logFile != nil {
-		log := logrus.New()
-		log.SetOutput(t.logFile)
-		log.SetFormatter(t.log.Formatter)
+		log := slog.New(slog.NewTextHandler(t.logFile, &slog.HandlerOptions{}))
 
-		appLogger := log.WithField("app", path.Base(cmd.Path))
+		appLogger := log.With("app", path.Base(cmd.Path))
 		if cmd.Stdout == nil {
 			stdout = logstream.New(func(line string) error {
 				appLogger.Info(line)

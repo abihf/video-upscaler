@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"regexp"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/abihf/video-upscaler/internal/queue"
 	"github.com/hibiken/asynq"
-	"github.com/sirupsen/logrus"
 )
 
 const MarkerFileName = ".upscale"
@@ -31,7 +31,7 @@ func (s *Scanner) Scan(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logrus.WithField("duration", time.Since(startTime)).Info("Done scanning")
+	slog.With("duration", time.Since(startTime)).Info("Done scanning")
 
 	return nil
 }
@@ -39,6 +39,7 @@ func (s *Scanner) Scan(ctx context.Context) error {
 func (s *Scanner) parentHasMarker() bool {
 	dir := s.Root
 	for {
+		// slog.Info("Checking", "path", fullPath)
 		if fileExists(path.Join(dir, MarkerFileName)) {
 			return true
 		}
@@ -46,19 +47,21 @@ func (s *Scanner) parentHasMarker() bool {
 		if parent == dir {
 			break
 		}
+		dir = parent
 	}
 	return false
 }
 
 func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) error {
 	fullPath := path.Join(s.Root, subDir)
+
 	dirents, err := os.ReadDir(fullPath)
 	if err != nil {
 		return fmt.Errorf("can't list dir: %w", err)
 	}
 
 	if !active && hasMarkerFile(dirents) {
-		logrus.WithField("subdir", subDir).Info("Marker file .upscale found")
+		slog.With("subdir", subDir).Info("Marker file .upscale found")
 		active = true
 	}
 
@@ -78,7 +81,7 @@ func (s *Scanner) scanSubDir(ctx context.Context, subDir string, active bool) er
 				defer wg.Done()
 				err := s.scanSubDir(ctx, relPath, active)
 				if err != nil {
-					logrus.WithContext(ctx).WithError(err).WithField("path", relPath).Error("Can not process subdir")
+					slog.Error("Can not process subdir", "err", err, "path", relPath)
 				}
 			}(path.Join(subDir, name))
 
@@ -139,12 +142,12 @@ func (s *Scanner) processFile(ctx context.Context, file string) error {
 	err = queue.Add(ctx, s.AsynqClient, file, out, priority)
 	if err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
-			logrus.WithField("in", file).WithError(err).Debug("Already in queue")
+			slog.With("in", file, "err", err).Debug("Already in queue")
 		} else {
 			return err
 		}
 	} else {
-		logrus.WithField("in", file).Info("Added to queue")
+		slog.With("in", file).Info("Added to queue")
 	}
 	return nil
 }

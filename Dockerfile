@@ -1,5 +1,5 @@
 # GO builder
-FROM golang:1.20-alpine AS source
+FROM golang:1.21rc2-alpine AS source
 WORKDIR /workspace
 
 ADD go.mod go.sum ./

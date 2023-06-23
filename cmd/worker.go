@@ -6,14 +6,15 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/model"
 	"github.com/abihf/video-upscaler/internal/upscaler"
 	"github.com/hibiken/asynq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,9 +35,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logrus.SetFormatter(&logrus.TextFormatter{})
-		logrus.SetLevel(logrus.DebugLevel)
-
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{})))
 		srv := asynq.NewServer(
 			redisConn(),
 			asynq.Config{
@@ -51,7 +50,7 @@ to quickly create a Cobra application.`,
 				ErrorHandler: asynq.ErrorHandlerFunc(func(_ context.Context, task *asynq.Task, err error) {
 					var p model.VideoUpscaleTask
 					json.Unmarshal(task.Payload(), &p)
-					logrus.WithError(err).WithField("task", p).Error("Error processing task")
+					slog.With("err", err, "task", p).Error("Error processing task")
 				}),
 			},
 		)
