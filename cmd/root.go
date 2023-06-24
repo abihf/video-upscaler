@@ -13,16 +13,19 @@ import (
 	"github.com/spf13/viper"
 )
 
+func init() {
+	cobra.OnInitialize(initConfig)
+
+	// getEnv("REDIS_ADDR", "localhost:6379")
+	rootCmd.PersistentFlags().StringP("redis-addr", "r", "localhost:6379", "redis address host:port")
+	rootCmd.RegisterFlagCompletionFunc("redis-addr", cobra.FixedCompletions(nil, cobra.ShellCompDirectiveNoFileComp))
+	viper.BindPFlags(rootCmd.PersistentFlags())
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "video-upscaler",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:          "video-upscaler [command]",
+	Short:        "A brief description of your application",
 	SilenceUsage: true,
 }
 
@@ -31,15 +34,6 @@ func Execute(ctx context.Context) {
 	if err != nil {
 		os.Exit(1)
 	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// getEnv("REDIS_ADDR", "localhost:6379")
-	rootCmd.PersistentFlags().StringP("redis-addr", "r", "localhost:6379", "redis address host:port")
-	rootCmd.RegisterFlagCompletionFunc("redis-addr", cobra.FixedCompletions(nil, cobra.ShellCompDirectiveNoFileComp))
-	viper.BindPFlags(rootCmd.PersistentFlags())
 }
 
 func initConfig() {

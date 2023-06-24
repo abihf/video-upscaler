@@ -5,28 +5,43 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/abihf/video-upscaler/internal/model"
 	"github.com/hibiken/asynq"
 )
 
-func Add(ctx context.Context, client *asynq.Client, in, out, priority string) error {
+func Add(ctx context.Context, conn asynq.RedisConnOpt, in, out, priority string, force bool) error {
 
 	payload, _ := json.Marshal(model.VideoUpscaleTask{
 		In:  in,
 		Out: out,
 	})
 
-	id := sha1.Sum([]byte(out))
+	idBytes := sha1.Sum([]byte(out))
+	id := base64.RawURLEncoding.EncodeToString(idBytes[:])
 	task := asynq.NewTask(model.TaskVideoUpscaleType, payload,
 		asynq.Timeout(3*time.Hour),
 		asynq.MaxRetry(2),
 		asynq.Retention(30*24*time.Hour),
-		asynq.TaskID(base64.RawURLEncoding.EncodeToString(id[:])),
+		asynq.TaskID(id),
 		asynq.Queue(priority),
 	)
 
+	client := asynq.NewClient(conn)
 	_, err := client.EnqueueContext(ctx, task)
+	if !force || err == nil || !errors.Is(err, asynq.ErrTaskIDConflict) {
+		return err
+	}
+
+	ri := asynq.NewInspector(conn)
+	err = ri.DeleteTask(priority, id)
+	if err != nil {
+		return fmt.Errorf("can not delete task %s: %w", id, err)
+	}
+
+	_, err = client.EnqueueContext(ctx, task)
 	return err
 }

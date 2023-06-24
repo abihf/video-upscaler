@@ -4,8 +4,9 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"path/filepath"
+
 	"github.com/abihf/video-upscaler/internal/scanner"
-	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
 )
 
@@ -13,16 +14,14 @@ import (
 var scanCmd = &cobra.Command{
 	Use:   "scan directory",
 	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactValidArgs(1),
+	Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli := asynq.NewClient(redisConn())
-		s := scanner.Scanner{Root: args[0], AsynqClient: cli}
+		root, err := filepath.Abs(args[0])
+		if err != nil {
+			return err
+		}
+		s := scanner.Scanner{Root: root, Conn: redisConn()}
 		return s.Scan(cmd.Context())
 	},
 	ValidArgsFunction: cobra.FixedCompletions(nil, cobra.ShellCompDirectiveFilterDirs),

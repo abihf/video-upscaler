@@ -23,16 +23,16 @@ var workerFlags struct {
 	tempDir             string
 }
 
+func init() {
+	rootCmd.AddCommand(workerCmd)
+	workerCmd.Flags().StringVar(&workerFlags.tempDir, "temp-dir", getEnv("TEMP_DIR", "/var/cache/upscalers"), "Help message for toggle")
+	workerCmd.Flags().StringVar(&workerFlags.metricsExporterAddr, "metrics-exporter", getEnv("METRICS_EXPORTER", ""), "Help message for toggle")
+}
+
 // workerCmd represents the worker command
 var workerCmd = &cobra.Command{
 	Use:   "worker",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Run upscale worker",
 
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{})))
@@ -74,10 +74,4 @@ func runMetricsServer() {
 		io.WriteString(w, "OK")
 	})
 	http.ListenAndServe(workerFlags.metricsExporterAddr, mux)
-}
-
-func init() {
-	rootCmd.AddCommand(workerCmd)
-	workerCmd.Flags().StringVar(&workerFlags.tempDir, "temp-dir", getEnv("TEMP_DIR", "/var/cache/upscalers"), "Help message for toggle")
-	workerCmd.Flags().StringVar(&workerFlags.metricsExporterAddr, "metrics-exporter", getEnv("METRICS_EXPORTER", ""), "Help message for toggle")
 }

@@ -20,8 +20,9 @@ import (
 const MarkerFileName = ".upscale"
 
 type Scanner struct {
-	Root        string
-	AsynqClient *asynq.Client
+	Root   string
+	Conn   asynq.RedisConnOpt
+	client *asynq.Client
 }
 
 func (s *Scanner) Scan(ctx context.Context) error {
@@ -139,7 +140,7 @@ func (s *Scanner) processFile(ctx context.Context, file string) error {
 		priority = "critical"
 	}
 
-	err = queue.Add(ctx, s.AsynqClient, file, out, priority)
+	err = queue.Add(ctx, s.Conn, file, out, priority, false)
 	if err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
 			slog.With("in", file, "err", err).Debug("Already in queue")
