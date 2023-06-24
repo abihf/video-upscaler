@@ -21,7 +21,8 @@ type Task struct {
 
 	TempDir string
 	log     *slog.Logger
-	logFile *os.File
+	baseLog *slog.Logger
+	// logFile *os.File
 }
 
 const FramesPerPart = 1440 // about 1 minute for 24fps
@@ -41,6 +42,8 @@ func (t *Task) Upscale(ctx context.Context) error {
 		return fmt.Errorf("can not create temp dir %s: %w", t.TempDir, err)
 	}
 
+	slog.Info("Upscaling file", "in", t.Input, "out", t.Output, "tmp", t.TempDir)
+
 	logFileName := path.Join(t.TempDir, "upscale.log")
 	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -48,8 +51,8 @@ func (t *Task) Upscale(ctx context.Context) error {
 	}
 	defer logFile.Close()
 	defer logFile.WriteString("\n -------------- CUT HERE -------------- \n\n")
-	t.logFile = logFile
-	t.log = slog.New(slog.NewTextHandler(io.MultiWriter(os.Stdout, t.logFile), &slog.HandlerOptions{}))
+	t.baseLog = slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{}))
+	t.log = t.baseLog.With("app", "worker")
 
 	listFileName := path.Join(t.TempDir, "files.txt")
 	err = t.upscaleParts(ctx, listFileName)
@@ -209,12 +212,12 @@ func (t *Task) getTotalFrameStr() ([]byte, error) {
 }
 
 func (t *Task) captureOutput(cmd *exec.Cmd) func() {
-
 	var stdout, stderr io.WriteCloser
-	if t.logFile != nil {
-		log := slog.New(slog.NewTextHandler(t.logFile, &slog.HandlerOptions{}))
+	if t.baseLog != nil {
+		// log := slog.New(slog.NewTextHandler(t.logFile, &slog.HandlerOptions{}))
 
-		appLogger := log.With("app", path.Base(cmd.Path))
+		appLogger := t.baseLog.With("app", path.Base(cmd.Path))
+		appLogger.Info("Run process", "args", cmd.Args)
 		if cmd.Stdout == nil {
 			stdout = logstream.New(func(line string) error {
 				appLogger.Info(line)
