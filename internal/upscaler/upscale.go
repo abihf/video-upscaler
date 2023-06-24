@@ -154,7 +154,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	}
 
 	t.log.Info("Moving combined files to output", "temp", combinedFile, "real", t.Output)
-	err = os.Rename(combinedFile, t.Output)
+	err = t.moveFile(combinedFile, t.Output)
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,15 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	}
 
 	return nil
+}
+
+func (t *Task) moveFile(src, dest string) error {
+	err := os.Link(src, dest)
+	if err != nil {
+		t.log.Warn("can not create hard link", "err", err, "src", src, "dest", dest)
+		return os.Rename(src, dest)
+	}
+	return os.Remove(src)
 }
 
 func (t *Task) getTotalFrame() (int, error) {
