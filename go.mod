@@ -3,6 +3,7 @@ module github.com/abihf/video-upscaler
 go 1.21
 
 require (
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hibiken/asynq v0.24.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/cobra v1.7.0

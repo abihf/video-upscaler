@@ -13,7 +13,12 @@ import (
 
 	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
+	"github.com/google/shlex"
 )
+
+var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info")
+var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-c:v", "hevc_nvenc", "-profile:v", "main10",
+	"-preset:v", "slow", "-rc:v", "vbr", "-qp:v", "19", "-temporal_aq", "1", "-spatial_aq", "1")
 
 type Task struct {
 	Input  string
@@ -115,10 +120,10 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 		"-a", fmt.Sprintf("to=%d", to),
 		"-")
 
-	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
-		"-i", "-",
-		"-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow", "-rc:v", "vbr", "-qmin:v", "24", "-qmax:v", "18",
-		"-y", outfile)
+	fullArgs := append(ffInputArgs, "-i", "-")
+	fullArgs = append(fullArgs, ffTranscodeArgs...)
+	fullArgs = append(fullArgs, "-y", outfile)
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
 	ffmpeg.Stdin, _ = vspipe.StdoutPipe()
 	ffmet.Handle(ffmpeg)
 
@@ -241,4 +246,16 @@ func (t *Task) captureOutput(cmd *exec.Cmd) func() {
 			stderr.Close()
 		}
 	}
+}
+
+func parseArgsFromEnv(name string, def ...string) []string {
+	ffArgsEnv := os.Getenv(name)
+	if ffArgsEnv != "" {
+		ffTranscodeArgs, err := shlex.Split(ffArgsEnv)
+		if err != nil {
+			panic(fmt.Errorf("can't parse args %s: %w", name, err))
+		}
+		return ffTranscodeArgs
+	}
+	return def
 }
