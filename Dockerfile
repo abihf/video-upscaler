@@ -1,31 +1,30 @@
+ARG BASE_IMAGE=ghcr.io/abihf/video-upscaler:base
+
 # GO builder
 FROM golang:1.21rc2-alpine AS source
 WORKDIR /workspace
 
-ADD go.mod go.sum ./
-RUN go mod download
-
-ADD . ./
 
 FROM source AS worker-build
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOOS=linux go build -a -o video-upscaler .
-
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/go/pkg \
+  --mount=type=bind,target=. \
+  CGO_ENABLED=0 GOOS=linux GOAMD64=v3 go build -v -a -o /video-upscaler .
 
 # ========================================================= #
 
 FROM scratch AS cli
-COPY --link --from=worker-build /workspace/video-upscaler /usr/bin/video-upscaler
+COPY --link --from=worker-build /video-upscaler /usr/bin/video-upscaler
 ENTRYPOINT [ "/usr/bin/video-upscaler" ]
 
-FROM golang:1.20-alpine AS tini
+# ========================================================= #
+
+FROM $BASE_IMAGE AS worker
+
 ARG TINI_VERSION=v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
-RUN chmod +x /tini
-
-FROM ghcr.io/abihf/video-upscaler:base AS worker
-COPY --from=tini /tini /tini
+ADD --link --chmod=0755 https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 ENTRYPOINT ["/tini", "--"]
-COPY script.py /upscale/
-COPY --link --from=worker-build /workspace/video-upscaler /usr/bin/video-upscaler
-CMD [ "/usr/bin/video-upscaler", "worker" ]
 
+COPY --link script.py /upscale/
+COPY --link --from=worker-build --chmod=0755 /video-upscaler /usr/bin/video-upscaler
+CMD [ "/usr/bin/video-upscaler", "worker" ]

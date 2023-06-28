@@ -17,7 +17,7 @@ def process(src):
 
 	model_path = os.getenv('VISPIPE_MODEL_PATH')
 	if model_path is None:
-		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiL2_std')
+		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiV2L2')
 		rgb = vsmlrt.RealESRGANv2(rgb, model=vsmlrt.RealESRGANv2Model[model_name], backend=be)
 	else:
 		rgb = vsmlrt.inference(rgb, model_path, backend=be)

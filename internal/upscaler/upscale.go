@@ -10,15 +10,15 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
-	"github.com/google/shlex"
 )
 
-var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info")
+var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10")
 var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-c:v", "hevc_nvenc", "-profile:v", "main10",
-	"-preset:v", "slow", "-rc:v", "vbr", "-qp:v", "19", "-temporal_aq", "1", "-spatial_aq", "1")
+	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "19", "-temporal_aq", "1", "-spatial_aq", "1")
 
 type Task struct {
 	Input  string
@@ -119,29 +119,44 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 		"-a", fmt.Sprintf("from=%d", from),
 		"-a", fmt.Sprintf("to=%d", to),
 		"-")
+	vspipeOut, err := vspipe.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	defer vspipeOut.Close()
+	defer t.captureOutput(vspipe)()
+
+	if pw, ok := vspipe.Stdout.(*os.File); ok {
+		fd := pw.Fd()
+		syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_SETPIPE_SZ, 16_600_000)
+	}
 
 	fullArgs := append(ffInputArgs, "-i", "-")
 	fullArgs = append(fullArgs, ffTranscodeArgs...)
 	fullArgs = append(fullArgs, "-y", outfile)
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
-	ffmpeg.Stdin, _ = vspipe.StdoutPipe()
-	ffmet.Handle(ffmpeg)
-
-	defer t.captureOutput(vspipe)()
+	ffmpeg.Stdin = vspipeOut
+	// ffmet.Handle(ffmpeg)
 	defer t.captureOutput(ffmpeg)()
 
-	errChan := make(chan error, 2)
-	go runCmd(vspipe, errChan)
-	go runCmd(ffmpeg, errChan)
-
-	var err error
-	for i := 0; i < 2; i++ {
-		err = <-errChan
+	return awaitAll(func(cmd *exec.Cmd) error {
+		err := cmd.Run()
 		if err != nil {
-			return err
+			return fmt.Errorf("%s error: %w", cmd.Path, err)
 		}
-	}
-	return nil
+		return nil
+	}, vspipe, ffmpeg)
+	// errChan := make(chan error, 2)
+	// go runCmd(vspipe, errChan)
+	// go runCmd(ffmpeg, errChan)
+
+	// for i := 0; i < 2; i++ {
+	// 	err = <-errChan
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// return nil
 }
 
 func (t *Task) finalize(ctx context.Context, listFileName string) error {
@@ -246,16 +261,4 @@ func (t *Task) captureOutput(cmd *exec.Cmd) func() {
 			stderr.Close()
 		}
 	}
-}
-
-func parseArgsFromEnv(name string, def ...string) []string {
-	ffArgsEnv := os.Getenv(name)
-	if ffArgsEnv != "" {
-		ffTranscodeArgs, err := shlex.Split(ffArgsEnv)
-		if err != nil {
-			panic(fmt.Errorf("can't parse args %s: %w", name, err))
-		}
-		return ffTranscodeArgs
-	}
-	return def
 }

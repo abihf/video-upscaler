@@ -44,7 +44,7 @@ func Handle(cmd *exec.Cmd) error {
 	}
 
 	cmd.ExtraFiles = append(cmd.ExtraFiles, fileWriter)
-	cmd.Args = append(cmd.Args, "-progress", fmt.Sprintf("pipe:%d", len(cmd.ExtraFiles)+2), "-stats_period", "10")
+	cmd.Args = append(cmd.Args, "-progress", fmt.Sprintf("pipe:%d", len(cmd.ExtraFiles)+2))
 	return nil
 }
 
