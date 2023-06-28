@@ -9,7 +9,7 @@ FROM source AS worker-build
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/go/pkg \
   --mount=type=bind,target=. \
-  CGO_ENABLED=0 GOOS=linux GOAMD64=v3 go build -v -a -o /video-upscaler .
+  CGO_ENABLED=0 GOOS=linux GOAMD64=v3 go build -v -o /video-upscaler .
 
 # ========================================================= #
 

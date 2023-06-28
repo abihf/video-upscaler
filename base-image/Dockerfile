@@ -3,9 +3,10 @@
 # base image with prepared apt
 # it also re-enable apt cache
 FROM ubuntu:22.04 as base
+ARG ENABLE_APT_CACHE=1
+RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	rm /etc/apt/apt.conf.d/docker-clean && \
 	apt-get update && apt-get install -y curl && \
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
 	dpkg -i cuda-keyring_1.1-1_all.deb && \

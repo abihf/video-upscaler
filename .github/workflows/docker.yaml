@@ -65,6 +65,8 @@ jobs:
         if: steps.base_img.outcome == 'failure'
         with:
           context: base-image
+          build-args: |
+            ENABLE_APT_CACHE=0
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
