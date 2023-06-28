@@ -56,7 +56,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
 
       - name: Check base image
-        run: docker manifest inspect ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**) }}
+        run: docker manifest inspect ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
         id: base_img
         continue-on-error: true
 
@@ -70,7 +70,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:base-${{ github.sha }}
             ghcr.io/${{ env.IMAGE_NAME }}:base
-            ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**) }}
+            ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=base
