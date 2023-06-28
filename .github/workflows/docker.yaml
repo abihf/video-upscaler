@@ -54,33 +54,27 @@ jobs:
           tags: |
             type=sha,enable=true,priority=100,prefix=sha-,suffix=,format=short
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-            
-      - name: Build CLI image
-        uses: docker/build-push-action@v4
-        with:
-          target: cli
-          pull: true
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ env.IMAGE_NAME }}:cli
-            ghcr.io/${{ env.IMAGE_NAME }}:cli
-          platforms: linux/amd64
-          labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
+
+      - name: Check base image
+        run: docker manifest inspect ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**) }}
+        id: base_img
+        continue-on-error: true
 
       - name: Build Base image
         uses: docker/build-push-action@v4
+        if: steps.base_img.outcome == 'failure'
         with:
           context: base-image
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.IMAGE_NAME }}:cli
+            ${{ env.IMAGE_NAME }}:base-${{ github.sha }}
             ghcr.io/${{ env.IMAGE_NAME }}:base
+            ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**) }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max,ignore-error=true
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,scope=base,mode=max,ignore-error=true
           outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
 
       - name: Build Worker image
@@ -92,3 +86,5 @@ jobs:
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max,ignore-error=true

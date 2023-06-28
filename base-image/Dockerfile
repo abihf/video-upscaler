@@ -1,18 +1,16 @@
 #syntax=docker/dockerfile:1-labs
 
-FROM ghcr.io/stargz-containers/ubuntu:22.04-esgz as base
+# base image with prepared apt
+# it also re-enable apt cache
+FROM ubuntu:22.04 as base
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get update && apt-get install -y curl
-
-FROM base as tensorrt
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+	rm /etc/apt/apt.conf.d/docker-clean && \
+	apt-get update && apt-get install -y curl && \
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
 	dpkg -i cuda-keyring_1.1-1_all.deb && \
 	rm cuda-keyring_1.1-1_all.deb && \
-	apt-get update && \
-	apt-get install -y tensorrt-libs
+	apt-get update
 
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
@@ -25,7 +23,7 @@ COPY <<EOF /cflags.sh
 EOF
 
 # ========================================================= #
-FROM tensorrt AS dev
+FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
@@ -200,9 +198,6 @@ EOF
 
 ARG VSMLRT_VER=b20fc6e726aaa89ba147163d946cfa1579f1fcf2
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
-# RUN git clone https://github.com/AmusementClub/vs-mlrt \
-# 	&& cd vs-mlrt \
-# 	&& git checkout ${VSMLRT_VER}
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
@@ -224,10 +219,12 @@ EOF
 
 # ========================================================= #
 
-FROM tensorrt AS runtime
+FROM base AS runtime
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libnvinfer-bin libpython3.10 rsync
+	apt-get install -y --no-install-recommends \
+		tensorrt-libs libpython3.10 \
+		libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
