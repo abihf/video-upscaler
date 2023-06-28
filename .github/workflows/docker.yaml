@@ -9,12 +9,12 @@ on:
   pull_request:
     branches: [main]
 env:
-  REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: main
     permissions:
       contents: read
       packages: write
@@ -29,27 +29,41 @@ jobs:
         with:
           buildkitd-flags: --oci-worker-snapshotter=stargz
 
-      - name: Log into registry ${{ env.REGISTRY }}
+      - name: Log into ghcr
+        #if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Log into docker hub
         # if: github.event_name != 'pull_request'
         uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          username: abihf
+          password: ${{ secrets.DOCKER_HUB_SECRET }}
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
+          images: |
+            ghcr.io/${{ env.IMAGE_NAME }}
+            ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,enable=true,priority=100,prefix=sha-,suffix=,format=short
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            
       - name: Build CLI image
         uses: docker/build-push-action@v4
         with:
           target: cli
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cli
+          tags: |
+            ${{ env.IMAGE_NAME }}:cli
+            ghcr.io/${{ env.IMAGE_NAME }}:cli
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
@@ -60,7 +74,9 @@ jobs:
           context: base-image
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:base
+          tags: |
+            ${{ env.IMAGE_NAME }}:cli
+            ghcr.io/${{ env.IMAGE_NAME }}:base
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -71,9 +87,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           target: worker
-          pull: true
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:worker
+          tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
