@@ -66,7 +66,7 @@ jobs:
         with:
           context: base-image
           build-args: |
-            ENABLE_APT_CACHE=0
+            ENABLE_APT_CACHE=1
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
@@ -75,9 +75,9 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=base
-          cache-to: type=gha,scope=base,mode=max,ignore-error=true
-          outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
+          cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:cache-base
+          cache-to: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:cache-base,mode=max,compression=zstd,oci-mediatypes=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
 
       - name: Build Worker image
         uses: docker/build-push-action@v4
@@ -87,6 +87,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=estargz,force-compression=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
           cache-from: type=gha,scope=worker
           cache-to: type=gha,scope=worker,mode=max,ignore-error=true
