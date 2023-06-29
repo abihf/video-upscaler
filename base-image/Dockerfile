@@ -180,7 +180,7 @@ EOF
 FROM dev AS vsmlrt
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake tensorrt-dev cuda-nvcc-12-1 libnvinfer-samples cuda-profiler-api-12-1
+	apt-get install -y cmake tensorrt-dev cuda-nvcc-12-2 libnvinfer-samples cuda-profiler-api-12-2
 
 COPY --link --from=cflags /cflags.sh .
 
