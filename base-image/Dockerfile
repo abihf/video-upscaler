@@ -13,6 +13,13 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	rm cuda-keyring_1.1-1_all.deb && \
 	apt-get update
 
+# ========================================================= #
+FROM base AS dev
+WORKDIR /workspace
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y build-essential git pkg-config
+
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
@@ -22,13 +29,6 @@ COPY <<EOF /cflags.sh
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
 	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
 EOF
-
-# ========================================================= #
-FROM base AS dev
-WORKDIR /workspace
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y build-essential git pkg-config
 
 # ========================================================= #
 
@@ -42,8 +42,7 @@ COPY --link --from=cflags /cflags.sh .
 ARG VAPOURSYNTH_VER=R63
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
-RUN bash <<EOF
-	set -euxo pipefail
+RUN bash -euxo pipefail <<EOF
 	tar xf vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 	(
 		source cflags.sh
@@ -83,8 +82,6 @@ EOF
 ARG FFMPEG_VER=6.0
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
-COPY --link --from=vapoursynth /build/vapoursynth/ /
-
 RUN bash <<EOF
 	set -euxo pipefail
 	tar xf ffmpeg-${FFMPEG_VER}.tar.xz
@@ -105,8 +102,7 @@ RUN bash <<EOF
 			--enable-nvdec \
 			--enable-nvenc \
 			--enable-shared \
-			--enable-version3 \
-			--enable-vapoursynth
+			--enable-version3
 		make -j8
 		make DESTDIR=/build/ffmpeg install
 	)
