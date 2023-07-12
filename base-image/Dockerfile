@@ -129,9 +129,9 @@ RUN bash <<EOF
 		cd obuparse-${OBUPARSE_VER}
 		make
 		make install
-		mkdir -p /build/lsmash/usr/local/lib
-		mkdir -p /build/lsmash/usr/local/include
-		make install PREFIX=/build/lsmash/usr/local
+		mkdir -p /build/lsmash/usr/lib
+		mkdir -p /build/lsmash/usr/include
+		make install PREFIX=/build/lsmash/usr
 	)
 	rm -rf obuparse-${OBUPARSE_VER}
 EOF
