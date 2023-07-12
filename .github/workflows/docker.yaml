@@ -43,11 +43,6 @@ jobs:
           username: abihf
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Check base image
-        run: docker manifest inspect --insecure ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
-        id: base_img
-        continue-on-error: true
-
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v4
@@ -58,6 +53,25 @@ jobs:
           tags: |
             type=sha,enable=true,priority=100,prefix=sha-,suffix=,format=short
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+      - name: Build CLI image
+        uses: docker/build-push-action@v4
+        with:
+          target: cli
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:cli
+            ghcr.io/${{ env.IMAGE_NAME }}:cli
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
+          cache-from: type=gha,scope=cli
+          cache-to: type=gha,scope=cli,mode=max,ignore-error=true
+
+      - name: Check base image
+        run: docker manifest inspect ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
+        id: base_img
+        continue-on-error: true
 
       - name: Build Base image
         uses: docker/build-push-action@v4
@@ -87,5 +101,4 @@ jobs:
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
-          cache-from: type=gha,scope=worker
-          cache-to: type=gha,scope=worker,mode=max,ignore-error=true
+          cache-from: type=gha,scope=cli
