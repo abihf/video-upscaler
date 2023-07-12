@@ -136,7 +136,7 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 	fullArgs = append(fullArgs, "-y", outfile)
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
 	ffmpeg.Stdin = vspipeOut
-	// ffmet.Handle(ffmpeg)
+	ffmet.Handle(ffmpeg)
 	defer t.captureOutput(ffmpeg)()
 
 	return awaitAll(func(cmd *exec.Cmd) error {
@@ -146,17 +146,6 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 		}
 		return nil
 	}, vspipe, ffmpeg)
-	// errChan := make(chan error, 2)
-	// go runCmd(vspipe, errChan)
-	// go runCmd(ffmpeg, errChan)
-
-	// for i := 0; i < 2; i++ {
-	// 	err = <-errChan
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// return nil
 }
 
 func (t *Task) finalize(ctx context.Context, listFileName string) error {
@@ -234,8 +223,6 @@ func (t *Task) getTotalFrameStr() ([]byte, error) {
 func (t *Task) captureOutput(cmd *exec.Cmd) func() {
 	var stdout, stderr io.WriteCloser
 	if t.baseLog != nil {
-		// log := slog.New(slog.NewTextHandler(t.logFile, &slog.HandlerOptions{}))
-
 		appLogger := t.baseLog.With("app", path.Base(cmd.Path))
 		appLogger.Info("Run process", "args", cmd.Args)
 		if cmd.Stdout == nil {
@@ -253,6 +240,7 @@ func (t *Task) captureOutput(cmd *exec.Cmd) func() {
 			cmd.Stderr = stderr
 		}
 	}
+
 	return func() {
 		if stdout != nil {
 			stdout.Close()

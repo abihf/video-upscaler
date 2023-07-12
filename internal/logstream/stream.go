@@ -1,42 +1,44 @@
 package logstream
 
 import (
+	"bytes"
 	"io"
 	"strings"
 )
 
-type LineTransformer struct {
+type LogStream struct {
 	Callback func(line string) error
 
 	sb strings.Builder
 }
 
-func New(callback func(line string) error) io.WriteCloser {
-	t := &LineTransformer{
+var _ io.WriteCloser = &LogStream{}
+
+func New(callback func(line string) error) *LogStream {
+	s := &LogStream{
 		Callback: callback,
 	}
-	return t
+	return s
 }
 
 // Write implements io.WriteCloser.
-func (t *LineTransformer) Write(data []byte) (n int, err error) {
-	return t.WriteString(string(data))
-}
-
-func (t *LineTransformer) WriteString(data string) (int, error) {
+func (s *LogStream) Write(data []byte) (int, error) {
 	start := 0
-	for {
-		nlIndex := strings.IndexAny(data[start:], "\r\n")
+	for start < len(data) {
+		nlIndex := bytes.IndexAny(data[start:], "\r\n")
 		if nlIndex < 0 {
 			break
 		}
 		line := data[start : start+nlIndex]
-		if t.sb.Len() > 0 {
-			t.sb.WriteString(line)
-			line = t.sb.String()
-			t.sb.Reset()
+		var lineStr string
+		if s.sb.Len() > 0 {
+			s.sb.Write(line)
+			lineStr = s.sb.String()
+			s.sb.Reset()
+		} else {
+			lineStr = string(line)
 		}
-		err := t.Callback(line)
+		err := s.Callback(lineStr)
 		if err != nil {
 			return 0, err
 		}
@@ -45,7 +47,36 @@ func (t *LineTransformer) WriteString(data string) (int, error) {
 	if start >= len(data) {
 		return len(data), nil
 	}
-	n, err := t.sb.WriteString(data[start:])
+	n, err := s.sb.Write(data[start:])
+	if err != nil {
+		return 0, err
+	}
+	return start + n, nil
+}
+
+func (s *LogStream) WriteString(data string) (int, error) {
+	start := 0
+	for start < len(data) {
+		nlIndex := strings.IndexAny(data[start:], "\r\n")
+		if nlIndex < 0 {
+			break
+		}
+		line := data[start : start+nlIndex]
+		if s.sb.Len() > 0 {
+			s.sb.WriteString(line)
+			line = s.sb.String()
+			s.sb.Reset()
+		}
+		err := s.Callback(line)
+		if err != nil {
+			return 0, err
+		}
+		start += nlIndex + 1
+	}
+	if start >= len(data) {
+		return len(data), nil
+	}
+	n, err := s.sb.WriteString(data[start:])
 	if err != nil {
 		return 0, err
 	}
@@ -53,16 +84,16 @@ func (t *LineTransformer) WriteString(data string) (int, error) {
 }
 
 // Close implements io.WriteCloser.
-func (t *LineTransformer) Close() error {
-	return t.Flush()
+func (s *LogStream) Close() error {
+	return s.Flush()
 }
 
 // Flush
-func (t *LineTransformer) Flush() error {
-	if t.sb.Len() > 0 {
-		line := t.sb.String()
-		t.sb.Reset()
-		return t.Callback(line)
+func (s *LogStream) Flush() error {
+	if s.sb.Len() > 0 {
+		line := s.sb.String()
+		s.sb.Reset()
+		return s.Callback(line)
 	}
 	return nil
 }
