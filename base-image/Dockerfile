@@ -154,7 +154,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=20230611
+ARG LSMASH_PLUGIN_VER=1129.0.1.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -193,7 +193,7 @@ RUN bash <<EOF
 	)
 EOF
 
-ARG VSMLRT_VER=b20fc6e726aaa89ba147163d946cfa1579f1fcf2
+ARG VSMLRT_VER=471769f3b569640cc6beed68e317390b2bbc7fc9
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
