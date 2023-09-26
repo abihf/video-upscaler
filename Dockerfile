@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ghcr.io/abihf/video-upscaler:base
 
 # GO builder
-FROM golang:1.21rc2-alpine AS worker-build
+FROM golang:1.21-alpine AS worker-build
 WORKDIR /go/src/github.com/abihf/video-upscaler
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/go/pkg \
