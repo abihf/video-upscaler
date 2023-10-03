@@ -12,7 +12,7 @@ def process(src):
 		src, tw, th, format=vs.RGBH, matrix_in_s="709", src_width=tw, src_height=th)
 
 	num_streams = int(os.getenv('VSPIPE_NUM_STREAMS', '1'))
-	be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=True, use_cuda_graph=True,
+	be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=False, use_cuda_graph=True,
 							use_cudnn=False, num_streams=num_streams, force_fp16=True)
 
 	model_path = os.getenv('VISPIPE_MODEL_PATH')
@@ -25,10 +25,10 @@ def process(src):
 	if os.getenv('VSPIPE_RIFE', '0') == '1':
 		model_name = os.getenv('VSPIPE_RIFE_MODEL', 'v4_7')
 		num_streams = int(os.getenv('VSPIPE_RIFE_NUM_STREAMS', '1'))
-		be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=True, use_cuda_graph=True,
-								use_cudnn=False, num_streams=num_streams, force_fp16=True)
+		be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=False, use_cuda_graph=True,
+								use_cudnn=False, num_streams=num_streams)
 		rgb = vsmlrt.RIFE(rgb, model=vsmlrt.RIFEModel[model_name].value,
-						  ensemble=True, backend=be, scale=1.0, _implementation=1)
+						  ensemble=False, backend=be, scale=1.0, _implementation=1)
 
 	# not necessary for RIFE (i.e. oh = src.height), but required for super-resolution upscalers.
 	oh = src.height * (rgb.height // th)
