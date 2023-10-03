@@ -39,7 +39,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R64
+ARG VAPOURSYNTH_VER=R63
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
