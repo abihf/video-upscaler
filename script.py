@@ -23,7 +23,7 @@ def process(src):
 		rgb = vsmlrt.inference(rgb, model_path, backend=be)
 
 	if os.getenv('VSPIPE_RIFE', '0') == '1':
-		model_name = os.getenv('VSPIPE_RIFE_MODEL', 'v4_6')
+		model_name = os.getenv('VSPIPE_RIFE_MODEL', 'v4_7')
 		num_streams = int(os.getenv('VSPIPE_RIFE_NUM_STREAMS', '1'))
 		be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=True, use_cuda_graph=True,
 								use_cudnn=False, num_streams=num_streams, force_fp16=True)

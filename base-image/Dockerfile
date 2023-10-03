@@ -39,7 +39,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R63
+ARG VAPOURSYNTH_VER=R64
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -118,7 +118,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG OBUPARSE_VER=055be27797cc37cf6e0c3c0bafc1aa752608b7fb
+ARG OBUPARSE_VER=f40598f69bb8af14568907dac35661a89fa2342b
 ADD --link https://github.com/dwbuiten/obuparse/archive/${OBUPARSE_VER}.tar.gz obuparse-${OBUPARSE_VER}.tar.gz
 
 RUN bash <<EOF
@@ -193,7 +193,7 @@ RUN bash <<EOF
 	)
 EOF
 
-ARG VSMLRT_VER=471769f3b569640cc6beed68e317390b2bbc7fc9
+ARG VSMLRT_VER=54f5d90749fd822e6ac8ab265161d051fd72f3a2
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
