@@ -49,7 +49,7 @@ RUN bash -euxo pipefail <<EOF
 		cd vapoursynth-${VAPOURSYNTH_VER}
 		./autogen.sh
 		./configure --prefix=/usr
-		make -j8 
+		make -s -j8 
 		make DESTDIR=/build/vapoursynth install 
 		mv /build/vapoursynth/usr/lib/python3.10/site-packages/vapoursynth.so /build/vapoursynth/usr/lib/python3.10 
 	)
@@ -103,7 +103,7 @@ RUN bash <<EOF
 			--enable-nvenc \
 			--enable-shared \
 			--enable-version3
-		make -j8
+		make -s -j8
 		make DESTDIR=/build/ffmpeg install
 	)
 	rm -rf ffmpeg-${FFMPEG_VER}
@@ -127,7 +127,7 @@ RUN bash <<EOF
 	(
 		source cflags.sh
 		cd obuparse-${OBUPARSE_VER}
-		make
+		make -s
 		make install
 		mkdir -p /build/lsmash/usr/lib
 		mkdir -p /build/lsmash/usr/include
@@ -147,7 +147,7 @@ RUN bash <<EOF
 		source cflags.sh
 		cd l-smash-${LSMASH_VER} 
 		./configure --prefix=/usr --enable-shared --disable-static 
-		make 
+		make -s
 		make install 
 		make DESTDIR=/build/lsmash install-lib
 	)
@@ -186,7 +186,7 @@ RUN bash <<EOF
 	set -euxo pipefail
 	(
 		cd /usr/src/tensorrt/samples/trtexec
-		make
+		make -s
 		mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
 		cp /usr/src/tensorrt/bin/trtexec /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/trtexec
 		cp /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so* /build/vsmlrt/usr/lib
