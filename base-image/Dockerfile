@@ -20,10 +20,12 @@ FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get install -y build-essential gcc-13 git pkg-config
+    apt-get install -y build-essential gcc-13 g++-13 libstdc++-13-dev git pkg-config
 
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
+	export CC=/usr/bin/gcc-13
+	export CXX=/usr/bin/g++-13
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection)
