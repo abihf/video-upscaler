@@ -2,23 +2,25 @@
 
 # base image with prepared apt
 # it also re-enable apt cache
-FROM ubuntu:22.04 as base
+FROM ubuntu:20.04 as base
 ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get update && apt-get install -y curl && \
-	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
-	dpkg -i cuda-keyring_1.1-1_all.deb && \
-	rm cuda-keyring_1.1-1_all.deb && \
-	apt-get update
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get update && apt-get install -y curl gnupg2 software-properties-common && \
+    mkdir -p /etc/apt/keyrings/ && \
+    curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/5.4 ubuntu main" >> /etc/apt/sources.list.d/rocm.list && \
+    echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > tee /etc/apt/preferences.d/rocm-pin-600 && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+ENV DEBIAN_FRONTEND noninteractive
 
 # ========================================================= #
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y build-essential git pkg-config
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y build-essential gcc-13 git pkg-config
 
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
@@ -34,8 +36,8 @@ EOF
 
 FROM dev AS vapoursynth
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev cython3
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev cython3
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -60,8 +62,8 @@ EOF
 
 FROM dev AS ffmpeg
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libx265-dev libzimg-dev python3-dev
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libx265-dev libzimg-dev python3-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -113,8 +115,8 @@ EOF
 
 FROM dev AS lsmash
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y meson libzimg-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -173,10 +175,34 @@ EOF
 
 # ========================================================= #
 
+FROM dev AS vsort
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y  --no-install-recommends \
+    rocm-dev migraphx-dev rocblas-dev miopen-hip-dev \
+    rocrand-dev rccl-dev hipsparse hipfft hipcub hipblas rocthrust rocm-device-libs 
+
+COPY --link --from=cflags /cflags.sh .
+
+ARG CMAKE_VER=3.27.7
+ADD --link https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-linux-x86_64.tar.gz cmake.tar.gz
+RUN tar -zxf cmake.tar.gz --strip=1 -C /usr
+
+ARG ONNX_VER=v1.16.1
+ADD --link --keep-git-dir=true https://github.com/Microsoft/onnxruntime.git#${ONNX_VER} onnxruntime
+
+# RUN bash <<EOF
+# 	set -euxo pipefail
+# 	(
+# 		cd onnxruntime
+#     ./build.sh --allow_running_as_root --config Release --parallel --skip_tests --use_migraphx --use_rocm --rocm_home /opt/rocm --rocm_version=5.4
+#  	)
+# EOF
+
 FROM dev AS vsmlrt
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake tensorrt-dev cuda-nvcc-12-2 libnvinfer-samples cuda-profiler-api-12-2
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y cmake tensorrt-dev cuda-nvcc-12-2 libnvinfer-samples cuda-profiler-api-12-2
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -218,10 +244,10 @@ EOF
 
 FROM base AS runtime
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y --no-install-recommends \
-		tensorrt-libs libpython3.10 \
-		libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    apt-get install -y --no-install-recommends \
+    tensorrt-libs libpython3.10 \
+    libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
