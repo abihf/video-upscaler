@@ -193,13 +193,13 @@ RUN tar -zxf cmake.tar.gz --strip=1 -C /usr
 ARG ONNX_VER=v1.16.1
 ADD --link --keep-git-dir=true https://github.com/Microsoft/onnxruntime.git#${ONNX_VER} onnxruntime
 
-# RUN bash <<EOF
-# 	set -euxo pipefail
-# 	(
-# 		cd onnxruntime
-#     ./build.sh --allow_running_as_root --config Release --parallel --skip_tests --use_migraphx --use_rocm --rocm_home /opt/rocm --rocm_version=5.4
-#  	)
-# EOF
+RUN --mount=target=/workspace/onnxruntime/build,type=cache bash <<EOF
+	set -euxo pipefail
+	(
+		cd onnxruntime
+    ./build.sh --allow_running_as_root --config Release --parallel --skip_tests --use_migraphx --use_rocm --rocm_home /opt/rocm --rocm_version=5.4
+ 	)
+EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
