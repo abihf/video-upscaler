@@ -10,7 +10,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
@@ -125,11 +124,6 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 	}
 	defer vspipeOut.Close()
 	defer t.captureOutput(vspipe)()
-
-	if pw, ok := vspipe.Stdout.(*os.File); ok {
-		fd := pw.Fd()
-		syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_SETPIPE_SZ, 16_600_000)
-	}
 
 	fullArgs := append(ffInputArgs, "-i", "-")
 	fullArgs = append(fullArgs, ffTranscodeArgs...)

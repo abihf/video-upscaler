@@ -65,7 +65,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG NV_CODEC_VER=12.0.16.0
+ARG NV_CODEC_VER=12.1.14.0
 ADD --link https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NV_CODEC_VER}/nv-codec-headers-${NV_CODEC_VER}.tar.gz .
 
 RUN bash <<EOF
@@ -79,7 +79,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=6.0
+ARG FFMPEG_VER=6.1.1
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash <<EOF
@@ -118,7 +118,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG OBUPARSE_VER=f40598f69bb8af14568907dac35661a89fa2342b
+ARG OBUPARSE_VER=478adcc872d5a8a19443e87910508e261a0a60ba
 ADD --link https://github.com/dwbuiten/obuparse/archive/${OBUPARSE_VER}.tar.gz obuparse-${OBUPARSE_VER}.tar.gz
 
 RUN bash <<EOF
@@ -154,7 +154,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=1129.0.1.0
+ARG LSMASH_PLUGIN_VER=1167.0.0.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -176,24 +176,17 @@ EOF
 FROM dev AS vsmlrt
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake tensorrt-dev cuda-nvcc-12-2 libnvinfer-samples cuda-profiler-api-12-2
+	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 libcublas-dev-12-3 libcudnn8-dev
 
 COPY --link --from=cflags /cflags.sh .
 
-# rebuild trtexec
-# somehow provided package doesn't work
-RUN bash <<EOF
-	set -euxo pipefail
-	(
-		cd /usr/src/tensorrt/samples/trtexec
-		make -s
-		mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
-		cp /usr/src/tensorrt/bin/trtexec /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/trtexec
-		cp /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so* /build/vsmlrt/usr/lib
-	)
-EOF
+ARG TENSORRT_VER=9.2.0.5
+ADD --link https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/9.2.0/tensorrt-${TENSORRT_VER}.linux.x86_64-gnu.cuda-12.2.tar.gz tensorrt.tar.gz
+RUN tar xf tensorrt.tar.gz \
+	&& mkdir -p /build/vsmlrt/usr/lib/ \
+	&& cp TensorRT-${TENSORRT_VER}/lib/*.so* /build/vsmlrt/usr/lib/
 
-ARG VSMLRT_VER=54f5d90749fd822e6ac8ab265161d051fd72f3a2
+ARG VSMLRT_VER=bb36bfe6e6f274a4342c1f75f168a4998a5d6f91
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -204,7 +197,7 @@ RUN bash <<EOF
 	(
 		source cflags.sh
 		cd vs-mlrt/vstrt/build
-		cmake .. -D USE_NVINFER_PLUGIN=ON -D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth
+		cmake .. -D USE_NVINFER_PLUGIN=ON -D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth -D TENSORRT_HOME="/workspace/TensorRT-9.2.0.5"
 		make
 	)
 	mkdir -p /build/vsmlrt/usr/lib/vapoursynth
@@ -220,8 +213,8 @@ FROM base AS runtime
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-		tensorrt-libs libpython3.10 \
-		libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
+	libpython3.10 \
+	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
