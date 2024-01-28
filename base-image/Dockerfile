@@ -4,7 +4,7 @@
 # it also re-enable apt cache
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
-RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
+RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get update && apt-get install -y curl && \
