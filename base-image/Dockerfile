@@ -213,7 +213,7 @@ FROM base AS runtime
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.10 \
+	libpython3.10 libcublas-12-3 libcudnn8  \
 	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
