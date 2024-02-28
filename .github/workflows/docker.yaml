@@ -88,8 +88,6 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:cache-base
-          cache-to: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:cache-base,mode=max,compression=zstd,oci-mediatypes=true
           outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
 
       - name: Build Worker image
