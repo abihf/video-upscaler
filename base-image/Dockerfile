@@ -24,12 +24,12 @@ FROM scratch as cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
-			-fstack-clash-protection -fcf-protection)
+			-fstack-clash-protection -fcf-protection -flto)
 	export CC=gcc-12
 	export CXX=g++-12
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto"
 EOF
 
 # ========================================================= #
@@ -195,9 +195,9 @@ ARG VSMLRT_VER=48f57dac7ccec47ed3b52f5eeb740d8121083fe9
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
-COPY --link --from=tensorrt /opt/TensorRT /opt/TensorRT
 
-RUN bash -euxo pipefail <<EOF
+RUN --mount=type=bind,from=tensorrt,source=/opt/TensorRT,target=/opt/TensorRT \
+	bash -euxo pipefail <<EOF
 	mkdir vs-mlrt/vstrt/build
 	(
 		source cflags.sh
