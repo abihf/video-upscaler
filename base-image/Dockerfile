@@ -29,7 +29,7 @@ COPY <<EOF /cflags.sh
 	export CXX=g++-12
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto"
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=gold"
 EOF
 
 # ========================================================= #
@@ -187,7 +187,7 @@ FROM dev AS vsmlrt
 RUN sleep 2
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 libcublas-dev-12-3 libcudnn8-dev 
+	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -223,7 +223,7 @@ RUN sleep 5
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.10 libcublas-12-3 libcudnn8  \
+	libpython3.10  \
 	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
