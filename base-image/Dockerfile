@@ -18,13 +18,15 @@ FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y build-essential git pkg-config
+	apt-get install -y gcc-12 g++-12 build-essential git pkg-config
 
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection)
+	export CC=gcc-12
+	export CXX=g++-12
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
 	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
@@ -35,14 +37,15 @@ EOF
 FROM dev AS vapoursynth
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev cython3
+	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev python3-pip
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R63
+ARG VAPOURSYNTH_VER=R65
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
+  pip install -U cython setuptools wheel
 	tar xf vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 	(
 		source cflags.sh
@@ -173,31 +176,37 @@ EOF
 
 # ========================================================= #
 
+FROM base AS tensorrt
+ARG TENSORRT_BASE_VER=9.3.0
+ARG TENSORRT_VER=${TENSORRT_BASE_VER}.1
+RUN curl -L https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${TENSORRT_BASE_VER}/tensorrt-${TENSORRT_VER}.linux.x86_64-gnu.cuda-12.2.tar.gz | tar -x -z -C /opt/ \
+	&& mv /opt/TensorRT-${TENSORRT_VER} /opt/TensorRT && \
+	rm /opt/TensorRT/lib/*.a /opt/TensorRT/lib/*/*.a
+
 FROM dev AS vsmlrt
+RUN sleep 2
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 libcublas-dev-12-3 libcudnn8-dev
+	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 libcublas-dev-12-3 libcudnn8-dev 
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG TENSORRT_VER=9.2.0.5
-ADD --link https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/9.2.0/tensorrt-${TENSORRT_VER}.linux.x86_64-gnu.cuda-12.2.tar.gz tensorrt.tar.gz
-RUN tar xf tensorrt.tar.gz \
-	&& mkdir -p /build/vsmlrt/usr/lib/ \
-	&& cp TensorRT-${TENSORRT_VER}/lib/*.so* /build/vsmlrt/usr/lib/
-
-ARG VSMLRT_VER=bb36bfe6e6f274a4342c1f75f168a4998a5d6f91
+ARG VSMLRT_VER=48f57dac7ccec47ed3b52f5eeb740d8121083fe9
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
+COPY --link --from=tensorrt /opt/TensorRT /opt/TensorRT
 
-RUN bash <<EOF
-	set -euxo pipefail
+RUN bash -euxo pipefail <<EOF
 	mkdir vs-mlrt/vstrt/build
 	(
 		source cflags.sh
 		cd vs-mlrt/vstrt/build
-		cmake .. -D USE_NVINFER_PLUGIN=ON -D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth -D TENSORRT_HOME="/workspace/TensorRT-9.2.0.5"
+		cmake .. \
+			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
+			-D CMAKE_CXX_COMPILER=g++-12 \
+			-D CMAKE_CXX_FLAGS="$CXXFLAGS" \
+			-D TENSORRT_HOME="/opt/TensorRT"
 		make
 	)
 	mkdir -p /build/vsmlrt/usr/lib/vapoursynth
@@ -210,6 +219,7 @@ EOF
 # ========================================================= #
 
 FROM base AS runtime
+RUN sleep 5
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 	--mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
@@ -219,5 +229,7 @@ COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
+COPY --link --from=tensorrt /opt/TensorRT/lib/ /usr/lib/
+COPY --link --from=tensorrt /opt/TensorRT/bin/trtexec /usr/lib/vapoursynth/vsmlrt-cuda/trtexec
 VOLUME [ "/models" ]
 ENV NVIDIA_DRIVER_CAPABILITIES=all

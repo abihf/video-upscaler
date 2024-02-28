@@ -7,11 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
+	"regexp"
 	"time"
 
 	"github.com/abihf/video-upscaler/internal/model"
 	"github.com/hibiken/asynq"
 )
+
+var fileNameNormalizer = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
 func Add(ctx context.Context, conn asynq.RedisConnOpt, in, out, priority string, force bool) error {
 
@@ -20,8 +24,9 @@ func Add(ctx context.Context, conn asynq.RedisConnOpt, in, out, priority string,
 		Out: out,
 	})
 
+	name := fileNameNormalizer.ReplaceAllString(path.Base(out), "_")
 	idBytes := sha1.Sum([]byte(out))
-	id := base64.RawURLEncoding.EncodeToString(idBytes[:])
+	id := name + "-" + base64.URLEncoding.EncodeToString(idBytes[0:6])
 	task := asynq.NewTask(model.TaskVideoUpscaleType, payload,
 		asynq.Timeout(3*time.Hour),
 		asynq.MaxRetry(2),

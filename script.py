@@ -17,7 +17,7 @@ def process(src):
 
 	model_path = os.getenv('VISPIPE_MODEL_PATH')
 	if model_path is None:
-		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiV2L2')
+		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiV3_HD_L2')
 		rgb = vsmlrt.RealESRGANv2(rgb, model=vsmlrt.RealESRGANv2Model[model_name], backend=be)
 	else:
 		rgb = vsmlrt.inference(rgb, model_path, backend=be)
@@ -28,7 +28,7 @@ def process(src):
 		be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=False, use_cuda_graph=True,
 								use_cudnn=False, num_streams=num_streams)
 		rgb = vsmlrt.RIFE(rgb, model=vsmlrt.RIFEModel[model_name].value,
-						  ensemble=False, backend=be, scale=1.0, _implementation=1)
+						  ensemble=True, backend=be, scale=1.0, _implementation=1)
 
 	# not necessary for RIFE (i.e. oh = src.height), but required for super-resolution upscalers.
 	oh = src.height * (rgb.height // th)

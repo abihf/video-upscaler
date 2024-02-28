@@ -17,7 +17,7 @@ import (
 
 var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10")
 var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-c:v", "hevc_nvenc", "-profile:v", "main10",
-	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "19", "-temporal_aq", "1", "-spatial_aq", "1")
+	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "16", "-temporal_aq", "1", "-spatial_aq", "1")
 
 type Task struct {
 	Input  string
@@ -148,7 +148,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	// combine the video files and merge it with original audio & subtitles
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
-		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy",
+		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy", "-seek2any", "1",
 		"-y", combinedFile,
 	)
 	defer t.captureOutput(ffmpeg)()
