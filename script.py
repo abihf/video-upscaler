@@ -12,12 +12,11 @@ def process(src):
 		src, tw, th, format=vs.RGBH, matrix_in_s="709", src_width=tw, src_height=th)
 
 	num_streams = int(os.getenv('VSPIPE_NUM_STREAMS', '1'))
-	be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=False, use_cuda_graph=True,
-							use_cudnn=False, num_streams=num_streams, force_fp16=True)
+	be = vsmlrt.Backend.MIGX(fp16=False)
 
 	model_path = os.getenv('VISPIPE_MODEL_PATH')
 	if model_path is None:
-		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiV2L2')
+		model_name = os.getenv('VSPIPE_MODEL_NAME', 'animejanaiV3_HD_L2')
 		rgb = vsmlrt.RealESRGANv2(rgb, model=vsmlrt.RealESRGANv2Model[model_name], backend=be)
 	else:
 		rgb = vsmlrt.inference(rgb, model_path, backend=be)
@@ -39,6 +38,6 @@ def process(src):
 
 
 args = globals()
-src = core.lsmas.LWLibavSource(args['in'], prefer_hw=0, cachefile=args['lwi'])
-video = process(src[int(args['from']):int(args['to'])])
+src = core.lsmas.LWLibavSource('test.mkv', cachefile='test.lwi')
+video = process(src[5000:6000])
 video.set_output()
