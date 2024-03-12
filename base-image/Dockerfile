@@ -1,25 +1,29 @@
 #syntax=docker/dockerfile:1-labs
 
+
 # base image with prepared apt
 # it also re-enable apt cache
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get update && apt-get install -y curl gnupg2 && \
-	mkdir -p /etc/apt/keyrings/ && \
-	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg && \
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy main" > /etc/apt/sources.list.d/rocm.list && \
-	echo "Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600" > /etc/apt/preferences.d/rocm-pin-600 && \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
+	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	apt-get update && apt-get install -y curl gnupg2
+	mkdir -p /etc/apt/keyrings/
+	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
+EOF
 ENV DEBIAN_FRONTEND noninteractive
 
 # ========================================================= #
 FROM base AS dev
 WORKDIR /workspace
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y gcc-12 g++-12 build-essential git pkg-config
 
 FROM scratch as cflags
@@ -37,8 +41,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS vapoursynth
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev python3-pip
 
 COPY --link --from=cflags /cflags.sh .
@@ -63,8 +66,7 @@ EOF
 
 # ========================================================= #
 FROM dev AS x265
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y cmake ninja-build
 
 COPY --link --from=cflags /cflags.sh .
@@ -105,33 +107,25 @@ RUN bash -euxo pipefail <<EOF
 EOF
 
 FROM dev AS ffmpeg
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libzimg-dev python3-dev
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libzimg-dev libva-dev
 
 COPY --link --from=cflags /cflags.sh .
 
 ARG FFMPEG_VER=6.1.1
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
-ARG AMF_VER=1.4.33
-ADD --link https://github.com/abihf/AMF/releases/download/v${AMF_VER}/AMF-headers.tar.gz AMF-headers.tar.gz
-ADD --link https://patchwork.ffmpeg.org/project/ffmpeg/patch/20231023134753.17106-3-lucenticus@gmail.com/raw/ amf-10bit.patch
-
 COPY --link --from=x265 /build/x265/ /
 
 RUN bash -euxo pipefail <<EOF
-	tar xf AMF-${AMF_VER}.tar.gz -C /usr/include
 	tar xf ffmpeg-${FFMPEG_VER}.tar.xz
 	(
 		source cflags.sh
 		cd ffmpeg-${FFMPEG_VER}
-		patch -p1 < ../amf-10bit.patch
 		./configure \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
-			--enable-amf \
 			--enable-gpl \
 			--enable-lto \
 			--enable-libopus \
@@ -139,6 +133,7 @@ RUN bash -euxo pipefail <<EOF
 			--enable-libvpx \
 			--enable-libx264 \
 			--enable-libx265 \
+			--enable-vaapi \
 			--enable-shared \
 			--enable-version3
 		make -s -j8
@@ -150,8 +145,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS lsmash
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev
 
 COPY --link --from=cflags /cflags.sh .
@@ -212,14 +206,13 @@ EOF
 # ========================================================= #
 
 FROM dev AS rocm-dev
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN sleep 1
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	hip-runtime-amd rocm-device-libs rocm-dev miopen-hip-dev rocblas-dev half
 
 FROM rocm-dev AS migraphx
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
 	cmake ninja-build python3-pip \
 	hip-base \
@@ -241,25 +234,23 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 
 RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.gz
 
-ARG MIGRAPHX_VER=84fc9f0207d37f337eb7696f5981ac5275d1b1ff
+ARG MIGRAPHX_VER=b1a24e5420ba49a08f8530cbb2e66264ae145d29
 ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
 
-RUN cd AMDMIGraphX && rbuild prepare -d depend
+RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
+	cd AMDMIGraphX && rbuild prepare -d tmp/depend
 
-RUN bash -euxo pipefail <<EOF	(
-		cd AMDMIGraphX
-		rbuild package -d depend -B build -DGPU_TARGETS=gfx1030 -DCMAKE_BUILD_TYPE=Release
-		mv build/*.deb .
-		rm -rf build
-	)
+RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp bash -euxo pipefail <<EOF
+	cd AMDMIGraphX
+	rbuild package -d tmp/depend -B build -DGPU_TARGETS=gfx1030 -DCMAKE_BUILD_TYPE=Release -DMIGRAPHX_ENABLE_PYTHON=OFF
+	mv build/*.deb .
+	rm -rf build
 EOF
 
 # ========================================================= #
 
 FROM rocm-dev AS vsmlrt
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get update && \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
 	cmake ninja-build
 
@@ -280,7 +271,7 @@ RUN bash <<EOF
 		cd vs-mlrt/vsmigx
 		cmake cmake -S . -B build -G Ninja -LA \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_BUILD_TYPE=Debug \
+			-D CMAKE_BUILD_TYPE=Release \
 			-D CMAKE_CXX_COMPILER=g++-12 \
 			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v3" \
 			-D migraphx_DIR=/opt/rocm/lib/cmake/migraphx \
@@ -301,35 +292,26 @@ RUN bash <<EOF
 	ln -sf /opt/rocm/lib/libmigraphx_gpu.so.2010000.0 /build/vsmlrt/usr/lib/libmigraphx_gpu.so
 EOF
 
+# remove unused rocblas & llvm: save about 7.5GB
+RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -not -name '*gfx1030*' -delete && \ 
+	rm -rf /opt/rocm/lib/llvm/ && \
+	mkdir /build/vsmlrt/opt && \
+	mv /opt/rocm* /build/vsmlrt/opt/
 # ========================================================= #
 
-FROM base AS amdgpu-pro
-WORKDIR /amdgpu-pro
-ADD --link https://repo.radeon.com/amdgpu/6.0.2/ubuntu/pool/proprietary/a/amdgpu-pro-core/amdgpu-pro-core_23.40-1718239.20.04_all.deb .
-ADD --link https://repo.radeon.com/amdgpu/6.0.2/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_1.4.33-1718239.20.04_amd64.deb .
-ADD --link https://repo.radeon.com/amdgpu/6.0.2/ubuntu/pool/proprietary/liba/libamdenc-amdgpu-pro/libamdenc-amdgpu-pro_1.0-1718239.20.04_amd64.deb .
-ADD --link https://repo.radeon.com/amdgpu/6.0.2/ubuntu/pool/main/libd/libdrm-amdgpu/libdrm2-amdgpu_2.4.116.60002-1718217.22.04_amd64.deb .
-ADD --link https://repo.radeon.com/amdgpu/6.0.2/ubuntu/pool/main/a/amdgpu-core/amdgpu-core_6.0.60002-1718217.22.04_all.deb .
-
 FROM base AS runtime
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN sleep 3
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.10 hip-runtime-amd rocm-device-libs miopen-hip rocblas roctracer half \
-	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 
-
-RUN --mount=target=/workspace/AMDMIGraphX,source=/workspace/AMDMIGraphX,type=bind,from=migraphx \
-	cd /workspace/AMDMIGraphX/build && dpkg -i migraphx_2.10.0-_amd64.deb
-
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	--mount=target=/amdgpu-pro,source=/amdgpu-pro,type=bind,from=amdgpu-pro \
-	cd /amdgpu-pro && (dpkg -i *.deb || apt install -y --fix-broken)
+	libpython3.10 half libnuma1 \
+	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libva2 libva-drm2 mesa-va-drivers
 
 COPY --link --from=x265 /build/x265/ /
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
+
+RUN echo "/opt/rocm/lib" > /etc/ld.so.conf.d/rocm.conf && ldconfig
+
 VOLUME [ "/models" ]
-ENV NVIDIA_DRIVER_CAPABILITIES=all
