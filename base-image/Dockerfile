@@ -5,8 +5,7 @@
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get update && apt-get install -y curl && \
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
 	dpkg -i cuda-keyring_1.1-1_all.deb && \
@@ -16,8 +15,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 # ========================================================= #
 FROM base AS dev
 WORKDIR /workspace
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y gcc-12 g++-12 build-essential git pkg-config
 
 FROM scratch as cflags
@@ -35,8 +33,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS vapoursynth
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev python3-pip
 
 COPY --link --from=cflags /cflags.sh .
@@ -62,8 +59,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS ffmpeg
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libx265-dev libzimg-dev python3-dev
 
 COPY --link --from=cflags /cflags.sh .
@@ -115,8 +111,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS lsmash
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev
 
 COPY --link --from=cflags /cflags.sh .
@@ -176,6 +171,30 @@ EOF
 
 # ========================================================= #
 
+FROM dev AS akarin
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y meson libzimg-dev llvm-dev zlib1g-dev
+
+COPY --link --from=cflags /cflags.sh .
+
+ARG AKARINVS_VER=8b7ff6dcc85bc9935789c799e63f1388dfbd1bd4
+ADD --link https://github.com/AkarinVS/vapoursynth-plugin/archive/${AKARINVS_VER}.tar.gz vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+
+COPY --link --from=vapoursynth /build/vapoursynth/ /
+RUN bash -euxo pipefail <<EOF
+	tar xf vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+	(
+		source cflags.sh
+		cd vapoursynth-plugin-${AKARINVS_VER}
+		meson setup --prefix=/usr build -Dstatic-llvm=true
+		meson compile -C build
+		meson install --destdir /build/akarin -C build
+	)
+	rm -rf vapoursynth-plugin-${AKARINVS_VER}
+EOF
+
+# ========================================================= #
+
 FROM base AS tensorrt
 ARG TENSORRT_BASE_VER=9.3.0
 ARG TENSORRT_VER=${TENSORRT_BASE_VER}.1
@@ -185,13 +204,12 @@ RUN curl -L https://developer.nvidia.com/downloads/compute/machine-learning/tens
 
 FROM dev AS vsmlrt
 RUN sleep 2
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=48f57dac7ccec47ed3b52f5eeb740d8121083fe9
+ARG VSMLRT_VER=39ce4d1a2d38f2d0fc13bebb1fa917750405b730
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -220,14 +238,14 @@ EOF
 
 FROM base AS runtime
 RUN sleep 5
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.10  \
 	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
+COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 COPY --link --from=tensorrt /opt/TensorRT/lib/ /usr/lib/
 COPY --link --from=tensorrt /opt/TensorRT/bin/trtexec /usr/lib/vapoursynth/vsmlrt-cuda/trtexec
