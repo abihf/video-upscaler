@@ -6,19 +6,20 @@
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
+ENV DEBIAN_FRONTEND noninteractive
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
+	apt-get -y upgrade
 EOF
-ENV DEBIAN_FRONTEND noninteractive
 
 # ========================================================= #
 FROM base AS dev
@@ -64,58 +65,14 @@ RUN bash -euxo pipefail <<EOF
 	rm -rf vapoursynth-${VAPOURSYNTH_VER}
 EOF
 
-# ========================================================= #
-FROM dev AS x265
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake ninja-build
-
-COPY --link --from=cflags /cflags.sh .
-
-ARG X265_VER=3.5
-ADD --link https://bitbucket.org/multicoreware/x265_git/get/${X265_VER}.tar.gz x265-${X265_VER}.tar.gz
-
-RUN bash -euxo pipefail <<EOF
-	set -euxo pipefail
-	tar xf x265-${X265_VER}.tar.gz
-	(
-		source cflags.sh
-		cd multicoreware-x265_git-*
-		
-		cmake -S source -B build-10 -G Ninja \
-			-DCMAKE_INSTALL_PREFIX=/usr \
-			-DHIGH_BIT_DEPTH=TRUE \
-			-DEXPORT_C_API=FALSE \
-			-DENABLE_CLI=FALSE \
-			-DENABLE_SHARED=FALSE \
-			-Wno-dev
-		ninja -C build-10
-
-		cmake -S source -B build -G Ninja \
-			-DCMAKE_INSTALL_PREFIX=/usr \
-			-DENABLE_SHARED=TRUE \
-			-DENABLE_HDR10_PLUS=TRUE \
-			-DEXTRA_LIB='x265_main10.a' \
-			-DEXTRA_LINK_FLAGS='-L .' \
-			-DLINKED_10BIT=TRUE \
-			-Wno-dev
-			ln -s ../build-10/libx265.a build/libx265_main10.a
-			ninja -C build
-
-		DESTDIR="/build/x265" ninja -C build install
-	)
-	rm -r multicoreware-x265_git-*
-EOF
-
 FROM dev AS ffmpeg
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libzimg-dev libva-dev
+	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libx265-dev libzimg-dev libva-dev
 
 COPY --link --from=cflags /cflags.sh .
 
 ARG FFMPEG_VER=6.1.1
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
-
-COPY --link --from=x265 /build/x265/ /
 
 RUN bash -euxo pipefail <<EOF
 	tar xf ffmpeg-${FFMPEG_VER}.tar.xz
@@ -205,6 +162,30 @@ EOF
 
 # ========================================================= #
 
+FROM dev AS akarin
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y meson libzimg-dev llvm-dev zlib1g-dev
+
+COPY --link --from=cflags /cflags.sh .
+
+ARG AKARINVS_VER=8b7ff6dcc85bc9935789c799e63f1388dfbd1bd4
+ADD --link https://github.com/AkarinVS/vapoursynth-plugin/archive/${AKARINVS_VER}.tar.gz vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+
+COPY --link --from=vapoursynth /build/vapoursynth/ /
+RUN bash -euxo pipefail <<EOF
+	tar xf vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+	(
+		source cflags.sh
+		cd vapoursynth-plugin-${AKARINVS_VER}
+		meson setup --prefix=/usr build -Dstatic-llvm=true
+		meson compile -C build
+		meson install --destdir /build/akarin -C build
+	)
+	rm -rf vapoursynth-plugin-${AKARINVS_VER}
+EOF
+
+# ========================================================= #
+
 FROM dev AS rocm-dev
 RUN sleep 1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
@@ -234,7 +215,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.gz
 
-ARG MIGRAPHX_VER=b1a24e5420ba49a08f8530cbb2e66264ae145d29
+ARG MIGRAPHX_VER=a4a220266d034a2d0d9dbabec2d1317b78791a38
 ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
 
 RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
@@ -256,8 +237,8 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=e775824473210c05009227c897a85e05fe748a25
-ADD --link --keep-git-dir=true https://github.com/abihf/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
+ARG VSMLRT_VER=39ce4d1a2d38f2d0fc13bebb1fa917750405b730
+ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
@@ -297,6 +278,8 @@ RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -
 	rm -rf /opt/rocm/lib/llvm/ && \
 	mkdir /build/vsmlrt/opt && \
 	mv /opt/rocm* /build/vsmlrt/opt/
+
+
 # ========================================================= #
 
 FROM base AS runtime
@@ -304,12 +287,12 @@ RUN sleep 3
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.10 half libnuma1 \
-	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libva2 libva-drm2 mesa-va-drivers
+	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libva2 libva-drm2 mesa-va-drivers
 
-COPY --link --from=x265 /build/x265/ /
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
+COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 
 RUN echo "/opt/rocm/lib" > /etc/ld.so.conf.d/rocm.conf && ldconfig

@@ -21,11 +21,10 @@ def process(src):
 	else:
 		rgb = vsmlrt.inference(rgb, model_path, backend=be)
 
-	if os.getenv('VSPIPE_RIFE', '0') == '1':
-		model_name = os.getenv('VSPIPE_RIFE_MODEL', 'v4_7')
+	if os.getenv('VSPIPE_RIFE', '1') == '1':
+		model_name = os.getenv('VSPIPE_RIFE_MODEL', 'v4_16')
 		num_streams = int(os.getenv('VSPIPE_RIFE_NUM_STREAMS', '1'))
-		be = vsmlrt.Backend.TRT(fp16=True, tf32=False, output_format=1, use_cublas=False, use_cuda_graph=True,
-								use_cudnn=False, num_streams=num_streams)
+		be = vsmlrt.Backend.MIGX(fp16=False)
 		rgb = vsmlrt.RIFE(rgb, model=vsmlrt.RIFEModel[model_name].value,
 						  ensemble=False, backend=be, scale=1.0, _implementation=1)
 
@@ -39,5 +38,5 @@ def process(src):
 
 args = globals()
 src = core.lsmas.LWLibavSource('test.mkv', cachefile='test.lwi')
-video = process(src[5000:6000])
+video = process(src[0:2000])
 video.set_output()
