@@ -4,13 +4,16 @@
 # it also re-enable apt cache
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
-RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get update && apt-get install -y curl && \
-	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
-	dpkg -i cuda-keyring_1.1-1_all.deb && \
-	rm cuda-keyring_1.1-1_all.deb && \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
+	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
+	apt-get install -y curl
+	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+	dpkg -i cuda-keyring_1.1-1_all.deb
+	rm cuda-keyring_1.1-1_all.deb
+	apt-get update
+EOF
 
 # ========================================================= #
 FROM base AS dev
@@ -20,7 +23,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 FROM scratch as cflags
 COPY <<EOF /cflags.sh
-	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
+	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
 	export CC=gcc-12
@@ -64,7 +67,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG NV_CODEC_VER=12.1.14.0
+ARG NV_CODEC_VER=12.2.72.0
 ADD --link https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NV_CODEC_VER}/nv-codec-headers-${NV_CODEC_VER}.tar.gz .
 
 RUN bash <<EOF
@@ -78,7 +81,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=6.1.1
+ARG FFMPEG_VER=7.0
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash <<EOF
@@ -152,7 +155,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=1167.0.0.0
+ARG LSMASH_PLUGIN_VER=1187.0.0.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -205,7 +208,7 @@ RUN curl -L https://developer.nvidia.com/downloads/compute/machine-learning/tens
 FROM dev AS vsmlrt
 RUN sleep 2
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-3 cuda-cudart-dev-12-3 
+	apt-get install -y cmake cuda-nvcc-12-4 cuda-cudart-dev-12-4
 
 COPY --link --from=cflags /cflags.sh .
 
