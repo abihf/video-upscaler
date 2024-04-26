@@ -5,7 +5,7 @@
 FROM ubuntu:22.04 as base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl
@@ -198,27 +198,18 @@ EOF
 
 # ========================================================= #
 
-FROM base AS tensorrt
-ARG TENSORRT_BASE_VER=9.3.0
-ARG TENSORRT_VER=${TENSORRT_BASE_VER}.1
-RUN curl -L https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/${TENSORRT_BASE_VER}/tensorrt-${TENSORRT_VER}.linux.x86_64-gnu.cuda-12.2.tar.gz | tar -x -z -C /opt/ \
-	&& mv /opt/TensorRT-${TENSORRT_VER} /opt/TensorRT && \
-	rm /opt/TensorRT/lib/*.a /opt/TensorRT/lib/*/*.a
-
 FROM dev AS vsmlrt
-RUN sleep 2
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-4 cuda-cudart-dev-12-4
+	apt-get install -y cmake cuda-nvcc-12-4 cuda-cudart-dev-12-4 tensorrt-dev
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=39ce4d1a2d38f2d0fc13bebb1fa917750405b730
+ARG VSMLRT_VER=84ef5c2b29defeeda48d0bd45675f97f912d40a1
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
-RUN --mount=type=bind,from=tensorrt,source=/opt/TensorRT,target=/opt/TensorRT \
-	bash -euxo pipefail <<EOF
+RUN bash -euxo pipefail <<EOF
 	mkdir vs-mlrt/vstrt/build
 	(
 		source cflags.sh
@@ -240,17 +231,14 @@ EOF
 # ========================================================= #
 
 FROM base AS runtime
-RUN sleep 5
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.10  \
-	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199
+	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-4
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
 COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
-COPY --link --from=tensorrt /opt/TensorRT/lib/ /usr/lib/
-COPY --link --from=tensorrt /opt/TensorRT/bin/trtexec /usr/lib/vapoursynth/vsmlrt-cuda/trtexec
 VOLUME [ "/models" ]
 ENV NVIDIA_DRIVER_CAPABILITIES=all
