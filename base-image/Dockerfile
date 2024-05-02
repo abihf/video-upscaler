@@ -221,11 +221,12 @@ RUN bash -euxo pipefail <<EOF
 			-D TENSORRT_HOME="/opt/TensorRT"
 		make
 	)
-	mkdir -p /build/vsmlrt/usr/lib/vapoursynth
+	mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
 	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/
 	cp vs-mlrt/vstrt/build/libvstrt.so /build/vsmlrt/usr/lib/vapoursynth
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
 	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
+	ln -sf /usr/src/tensorrt/bin/trtexec /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
 EOF
 
 # ========================================================= #
