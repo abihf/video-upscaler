@@ -8,14 +8,14 @@ ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
 ENV DEBIAN_FRONTEND noninteractive
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.1 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.1 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.1/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.1/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
 	apt-get -y upgrade
@@ -71,7 +71,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG FFMPEG_VER=6.1.1
+ARG FFMPEG_VER=7.0
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash -euxo pipefail <<EOF
@@ -143,7 +143,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=1129.0.1.0
+ARG LSMASH_PLUGIN_VER=1187.0.0.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -215,7 +215,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.gz
 
-ARG MIGRAPHX_VER=a4a220266d034a2d0d9dbabec2d1317b78791a38
+ARG MIGRAPHX_VER=3b3eca54477f736d16f1be99395c41f615dd1b54
 ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
 
 RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
@@ -237,7 +237,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=39ce4d1a2d38f2d0fc13bebb1fa917750405b730
+ARG VSMLRT_VER=fb3a8c262092cbc91949fbf6ed4d74143a905886
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -252,7 +252,7 @@ RUN bash <<EOF
 		cd vs-mlrt/vsmigx
 		cmake cmake -S . -B build -G Ninja -LA \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_BUILD_TYPE=Release \
+			-D CMAKE_BUILD_TYPE=Debug \
 			-D CMAKE_CXX_COMPILER=g++-12 \
 			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v3" \
 			-D migraphx_DIR=/opt/rocm/lib/cmake/migraphx \
@@ -270,7 +270,7 @@ RUN bash <<EOF
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
 	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
 	ln -s /opt/rocm/bin/migraphx-driver /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-hip/
-	ln -sf /opt/rocm/lib/libmigraphx_gpu.so.2010000.0 /build/vsmlrt/usr/lib/libmigraphx_gpu.so
+	# ln -sf /opt/rocm/lib/libmigraphx_gpu.so.2010000.0 /build/vsmlrt/usr/lib/libmigraphx_gpu.so
 EOF
 
 # remove unused rocblas & llvm: save about 7.5GB
