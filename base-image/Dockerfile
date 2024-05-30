@@ -12,10 +12,10 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.1 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.1 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.1/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.1/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
 	apt-get -y upgrade
@@ -218,10 +218,12 @@ RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.
 ARG MIGRAPHX_VER=3b3eca54477f736d16f1be99395c41f615dd1b54
 ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
 
-RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
-	cd AMDMIGraphX && rbuild prepare -d tmp/depend
+# RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
+# 	cd AMDMIGraphX && rbuild prepare -d tmp/depend
 
-RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp bash -euxo pipefail <<EOF
+RUN cd AMDMIGraphX && rbuild prepare -d tmp/depend
+
+RUN bash -euxo pipefail <<EOF
 	cd AMDMIGraphX
 	rbuild package -d tmp/depend -B build -DGPU_TARGETS=gfx1030 -DCMAKE_BUILD_TYPE=Release -DMIGRAPHX_ENABLE_PYTHON=OFF
 	mv build/*.deb .
