@@ -204,7 +204,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=84ef5c2b29defeeda48d0bd45675f97f912d40a1
+ARG VSMLRT_VER=53baf564fe277ebe25fd25afffddb998aee7d405
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
