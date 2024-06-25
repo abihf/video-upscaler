@@ -2,7 +2,7 @@
 
 # base image with prepared apt
 # it also re-enable apt cache
-FROM ubuntu:22.04 as base
+FROM ubuntu:22.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
@@ -13,6 +13,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
 	apt-get update
+	apt-get upgrade -y
 EOF
 
 # ========================================================= #
@@ -21,7 +22,7 @@ WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y gcc-12 g++-12 build-essential git pkg-config
 
-FROM scratch as cflags
+FROM scratch AS cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
@@ -81,7 +82,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=7.0
+ARG FFMPEG_VER=7.0.1
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash <<EOF
@@ -137,7 +138,7 @@ RUN bash <<EOF
 	rm -rf obuparse-${OBUPARSE_VER}
 EOF
 
-ARG LSMASH_VER=2c0696caacb91af2737b94b51738d5dfcea37dfe
+ARG LSMASH_VER=62a93fb6a23b013d38f30fcb827c2abda69ee3d1
 ADD --link https://github.com/vimeo/l-smash/archive/${LSMASH_VER}.tar.gz l-smash-${LSMASH_VER}.tar.gz
 
 COPY --link --from=ffmpeg /build/ffmpeg/ /
@@ -155,7 +156,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=1187.0.0.0
+ARG LSMASH_PLUGIN_VER=1194.0.0.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -204,7 +205,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=53baf564fe277ebe25fd25afffddb998aee7d405
+ARG VSMLRT_VER=c9fe215c8bf570a24b3c43e5aa3cc39f140cc3a2
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
