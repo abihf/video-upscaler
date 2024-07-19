@@ -12,10 +12,10 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.3 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
 	apt-get -y upgrade
@@ -71,7 +71,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG FFMPEG_VER=7.0
+ARG FFMPEG_VER=7.0.1
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash -euxo pipefail <<EOF
@@ -107,7 +107,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG OBUPARSE_VER=f40598f69bb8af14568907dac35661a89fa2342b
+ARG OBUPARSE_VER=478adcc872d5a8a19443e87910508e261a0a60ba
 ADD --link https://github.com/dwbuiten/obuparse/archive/${OBUPARSE_VER}.tar.gz obuparse-${OBUPARSE_VER}.tar.gz
 
 RUN bash <<EOF
@@ -125,7 +125,7 @@ RUN bash <<EOF
 	rm -rf obuparse-${OBUPARSE_VER}
 EOF
 
-ARG LSMASH_VER=2c0696caacb91af2737b94b51738d5dfcea37dfe
+ARG LSMASH_VER=62a93fb6a23b013d38f30fcb827c2abda69ee3d1
 ADD --link https://github.com/vimeo/l-smash/archive/${LSMASH_VER}.tar.gz l-smash-${LSMASH_VER}.tar.gz
 
 COPY --link --from=ffmpeg /build/ffmpeg/ /
@@ -143,7 +143,7 @@ RUN bash <<EOF
 	rm -rf l-smash-${LSMASH_VER}
 EOF
 
-ARG LSMASH_PLUGIN_VER=1187.0.0.0
+ARG LSMASH_PLUGIN_VER=1194.0.0.0
 ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -195,7 +195,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 FROM rocm-dev AS migraphx
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
-	cmake ninja-build python3-pip \
+	cmake ninja-build python3-pip python3-dev \
 	hip-base \
 	libnuma-dev \
 	hipfft \
@@ -215,15 +215,15 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.gz
 
-ARG MIGRAPHX_VER=3b3eca54477f736d16f1be99395c41f615dd1b54
+ARG MIGRAPHX_VER=3e65032266c013e840fd08a2f41623a822e1c538
 ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
 
-# RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
-# 	cd AMDMIGraphX && rbuild prepare -d tmp/depend
+RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
+	cd AMDMIGraphX && rbuild prepare -d tmp/depend
 
-RUN cd AMDMIGraphX && rbuild prepare -d tmp/depend
+# RUN cd AMDMIGraphX && rbuild prepare -d tmp/depend
 
-RUN bash -euxo pipefail <<EOF
+RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp bash -euxo pipefail <<EOF
 	cd AMDMIGraphX
 	rbuild package -d tmp/depend -B build -DGPU_TARGETS=gfx1030 -DCMAKE_BUILD_TYPE=Release -DMIGRAPHX_ENABLE_PYTHON=OFF
 	mv build/*.deb .
@@ -239,13 +239,13 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=fb3a8c262092cbc91949fbf6ed4d74143a905886
+ARG VSMLRT_VER=d30d984bc71c05a5ee41db1fdba7929efc62cbb7
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
 RUN --mount=target=/workspace/AMDMIGraphX,source=/workspace/AMDMIGraphX,type=bind,from=migraphx \
-	cd /workspace/AMDMIGraphX && dpkg -i migraphx_2.10.0-_amd64.deb migraphx-dev_2.10.0_amd64.deb
+	cd /workspace/AMDMIGraphX && dpkg -i migraphx_2.11.0-_amd64.deb migraphx-dev_2.11.0_amd64.deb
 
 RUN bash <<EOF
 	set -euxo pipefail
