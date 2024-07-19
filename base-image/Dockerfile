@@ -5,7 +5,7 @@
 FROM ubuntu:22.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl
@@ -201,7 +201,7 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-4 cuda-cudart-dev-12-4 tensorrt-dev
+	apt-get install -y cmake cuda-nvcc-12-5 cuda-cudart-dev-12-5 tensorrt-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -236,7 +236,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.10  \
-	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-4
+	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-5
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
