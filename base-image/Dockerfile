@@ -12,10 +12,10 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.3 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.3 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.3/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.3/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
 	apt-get -y upgrade
@@ -235,23 +235,22 @@ EOF
 FROM rocm-dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
-	cmake ninja-build
+	cmake ninja-build migraphx-dev
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=d30d984bc71c05a5ee41db1fdba7929efc62cbb7
+ARG VSMLRT_VER=892d67f25ac55a82325a50a7a0bef36feb0733a1
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
-
-RUN --mount=target=/workspace/AMDMIGraphX,source=/workspace/AMDMIGraphX,type=bind,from=migraphx \
-	cd /workspace/AMDMIGraphX && dpkg -i migraphx_2.11.0-_amd64.deb migraphx-dev_2.11.0_amd64.deb
 
 RUN bash <<EOF
 	set -euxo pipefail
 	(
 		source cflags.sh
 		cd vs-mlrt/vsmigx
+		sed -i /version.h/d vs_migraphx.cpp 
+		sed -i 's/MIGRAPHX_VERSION_/HIP_VERSION_/g' vs_migraphx.cpp
 		cmake cmake -S . -B build -G Ninja -LA \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
 			-D CMAKE_BUILD_TYPE=Debug \
@@ -280,7 +279,8 @@ RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -
 	rm -rf /opt/rocm/lib/llvm/ && \
 	mkdir /build/vsmlrt/opt && \
 	mv /opt/rocm* /build/vsmlrt/opt/
-
+# RUN mkdir /build/vsmlrt/opt && \
+# 	mv /opt/rocm* /build/vsmlrt/opt/
 
 # ========================================================= #
 
