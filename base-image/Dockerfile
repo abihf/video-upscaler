@@ -12,10 +12,10 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get update && apt-get install -y curl gnupg2
 	mkdir -p /etc/apt/keyrings/
 	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 jammy main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2.2 jammy main" > /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2.2 jammy proprietary" >> /etc/apt/sources.list.d/rocm.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2.2/ubuntu jammy main" > /etc/apt/sources.list.d/amdgpu.list
+	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.2.2/ubuntu jammy proprietary" >> /etc/apt/sources.list.d/amdgpu.list
 	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
 	apt-get update
 	apt-get -y upgrade
@@ -31,7 +31,7 @@ FROM scratch as cflags
 COPY <<EOF /cflags.sh
 	export CC=/usr/bin/gcc-12
 	export CXX=/usr/bin/g++-12
-	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions
+	baseflags=(-march=x86-64-v4 -O2 -pipe -fno-plt -fexceptions
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
 	export CFLAGS="\${baseflags[@]}"
@@ -71,7 +71,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG FFMPEG_VER=7.0.1
+ARG FFMPEG_VER=7.0.2
 ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
 
 RUN bash -euxo pipefail <<EOF
@@ -232,14 +232,14 @@ EOF
 
 # ========================================================= #
 
-FROM rocm-dev AS vsmlrt
+FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
-	cmake ninja-build migraphx-dev
+	cmake ninja-build migraphx-dev miopen-hip-dev rocblas-dev hipcc rocm-device-libs
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=892d67f25ac55a82325a50a7a0bef36feb0733a1
+ARG VSMLRT_VER=0b7213dfd16b29a88b7701c77a252cfc744737e0
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -255,7 +255,7 @@ RUN bash <<EOF
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
 			-D CMAKE_BUILD_TYPE=Debug \
 			-D CMAKE_CXX_COMPILER=g++-12 \
-			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v3" \
+			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v4 -DMIGRAPHX_VERSION_TWEAK" \
 			-D migraphx_DIR=/opt/rocm/lib/cmake/migraphx \
 			-D MIOpen_DIR=/opt/rocm/lib/cmake/miopen \
 			-D hip_DIR=/opt/rocm/lib/cmake/hip \
@@ -271,16 +271,15 @@ RUN bash <<EOF
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
 	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
 	ln -s /opt/rocm/bin/migraphx-driver /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-hip/
-	# ln -sf /opt/rocm/lib/libmigraphx_gpu.so.2010000.0 /build/vsmlrt/usr/lib/libmigraphx_gpu.so
 EOF
 
 # remove unused rocblas & llvm: save about 7.5GB
-RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -not -name '*gfx1030*' -delete && \ 
-	rm -rf /opt/rocm/lib/llvm/ && \
-	mkdir /build/vsmlrt/opt && \
-	mv /opt/rocm* /build/vsmlrt/opt/
-# RUN mkdir /build/vsmlrt/opt && \
+# RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -not -name '*gfx1030*' -delete && \ 
+# 	rm -rf /opt/rocm/lib/llvm/ && \
+# 	mkdir /build/vsmlrt/opt && \
 # 	mv /opt/rocm* /build/vsmlrt/opt/
+RUN mkdir /build/vsmlrt/opt && \
+	mv /opt/rocm* /build/vsmlrt/opt/
 
 # ========================================================= #
 
