@@ -234,7 +234,7 @@ EOF
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.12-minimal  \
+	libpython3.12t64  \
 	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-6
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
