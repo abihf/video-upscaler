@@ -2,14 +2,14 @@
 
 # base image with prepared apt
 # it also re-enable apt cache
-FROM ubuntu:22.04 AS base
+FROM ubuntu:24.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	#sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
+	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl
-	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
 	apt-get update
@@ -20,15 +20,15 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y gcc-12 g++-12 build-essential git pkg-config
+	apt-get install -y gcc-14 g++-14 build-essential git pkg-config
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
-	export CC=gcc-12
-	export CXX=g++-12
+	export CC=gcc-14
+	export CXX=g++-14
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
 	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=gold"
@@ -42,11 +42,11 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R65
+ARG VAPOURSYNTH_VER=R70
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
-  pip install -U cython setuptools wheel
+  pip install -U --break-system-packages cython setuptools
 	tar xf vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 	(
 		source cflags.sh
@@ -55,7 +55,7 @@ RUN bash -euxo pipefail <<EOF
 		./configure --prefix=/usr
 		make -s -j8 
 		make DESTDIR=/build/vapoursynth install 
-		mv /build/vapoursynth/usr/lib/python3.10/site-packages/vapoursynth.so /build/vapoursynth/usr/lib/python3.10 
+		mv /build/vapoursynth/usr/lib/python3.12/site-packages/vapoursynth.so /build/vapoursynth/usr/lib/python3.12 
 	)
 	rm -rf vapoursynth-${VAPOURSYNTH_VER}
 EOF
@@ -82,15 +82,14 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=7.0.1
-ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
+ARG FFMPEG_VER=n7.2-dev
+ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
-RUN bash <<EOF
-	set -euxo pipefail
-	tar xf ffmpeg-${FFMPEG_VER}.tar.xz
+RUN bash -euxo pipefail <<EOF
+	tar xf ffmpeg-${FFMPEG_VER}.tar.gz
 	(
 		source cflags.sh
-		cd ffmpeg-${FFMPEG_VER}
+		cd FFmpeg-${FFMPEG_VER}
 		./configure \
 			--prefix=/usr \
 			--disable-debug \
@@ -177,7 +176,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-dev zlib1g-dev
+	apt-get install -y meson libzimg-dev llvm-15-dev zlib1g-dev libzstd-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -201,11 +200,11 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-5 cuda-cudart-dev-12-5 tensorrt-dev
+	apt-get install -y cmake cuda-nvcc-12-6 cuda-cudart-dev-12-6 tensorrt-dev
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=c9fe215c8bf570a24b3c43e5aa3cc39f140cc3a2
+ARG VSMLRT_VER=b3d6425d45f688c12946741cb044f7719f64abd8
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -217,7 +216,7 @@ RUN bash -euxo pipefail <<EOF
 		cd vs-mlrt/vstrt/build
 		cmake .. \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_CXX_COMPILER=g++-12 \
+			-D CMAKE_CXX_COMPILER=g++-14 \
 			-D CMAKE_CXX_FLAGS="$CXXFLAGS" \
 			-D TENSORRT_HOME="/opt/TensorRT"
 		make
@@ -235,8 +234,8 @@ EOF
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.10  \
-	libtheora0 libzimg2 libopus0 libvpx7 libx264-163 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-5
+	libpython3.12-minimal  \
+	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-6
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
