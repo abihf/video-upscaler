@@ -71,14 +71,14 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG FFMPEG_VER=7.0.2
-ADD --link https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz .
+ARG FFMPEG_VER=n7.1
+ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
-	tar xf ffmpeg-${FFMPEG_VER}.tar.xz
+	tar xf ffmpeg-${FFMPEG_VER}.tar.gz
 	(
 		source cflags.sh
-		cd ffmpeg-${FFMPEG_VER}
+		cd FFmpeg-${FFMPEG_VER}
 		./configure \
 			--prefix=/usr \
 			--disable-debug \
@@ -186,52 +186,6 @@ EOF
 
 # ========================================================= #
 
-FROM dev AS rocm-dev
-RUN sleep 1
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y --no-install-recommends \
-	hip-runtime-amd rocm-device-libs rocm-dev miopen-hip-dev rocblas-dev half
-
-FROM rocm-dev AS migraphx
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y  --no-install-recommends \
-	cmake ninja-build python3-pip python3-dev \
-	hip-base \
-	libnuma-dev \
-	hipfft \
-	rocthrust \
-	rocrand \
-	hipsparse \
-	rccl \
-	rccl-dev \
-	rocm-smi-lib \
-	roctracer-dev \
-	hipcub  \
-	hipblas  \
-	hipify-clang \
-	hiprand-dev \
-	libssl-dev \
-	zlib1g-dev
-
-RUN pip3 install https://github.com/RadeonOpenCompute/rbuild/archive/master.tar.gz
-
-ARG MIGRAPHX_VER=3e65032266c013e840fd08a2f41623a822e1c538
-ADD --link https://github.com/ROCm/AMDMIGraphX.git#${MIGRAPHX_VER} AMDMIGraphX
-
-RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp \
-	cd AMDMIGraphX && rbuild prepare -d tmp/depend
-
-# RUN cd AMDMIGraphX && rbuild prepare -d tmp/depend
-
-RUN --mount=type=cache,target=/workspace/AMDMIGraphX/tmp bash -euxo pipefail <<EOF
-	cd AMDMIGraphX
-	rbuild package -d tmp/depend -B build -DGPU_TARGETS=gfx1030 -DCMAKE_BUILD_TYPE=Release -DMIGRAPHX_ENABLE_PYTHON=OFF
-	mv build/*.deb .
-	rm -rf build
-EOF
-
-# ========================================================= #
-
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y  --no-install-recommends \
@@ -239,7 +193,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=0b7213dfd16b29a88b7701c77a252cfc744737e0
+ARG VSMLRT_VER=935728d722b110e8acd423974d66b0dbb7a1b17e
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -253,9 +207,9 @@ RUN bash <<EOF
 		sed -i 's/MIGRAPHX_VERSION_/HIP_VERSION_/g' vs_migraphx.cpp
 		cmake cmake -S . -B build -G Ninja -LA \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_BUILD_TYPE=Debug \
+			-D CMAKE_BUILD_TYPE=Release \
 			-D CMAKE_CXX_COMPILER=g++-12 \
-			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v4 -DMIGRAPHX_VERSION_TWEAK" \
+			-D CMAKE_CXX_FLAGS="-Wall -ffast-math -march=x86-64-v4 -DHIP_VERSION_TWEAK  -DMIGRAPHX_VERSION_TWEAK" \
 			-D migraphx_DIR=/opt/rocm/lib/cmake/migraphx \
 			-D MIOpen_DIR=/opt/rocm/lib/cmake/miopen \
 			-D hip_DIR=/opt/rocm/lib/cmake/hip \
@@ -274,12 +228,12 @@ RUN bash <<EOF
 EOF
 
 # remove unused rocblas & llvm: save about 7.5GB
-# RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -not -name '*gfx1030*' -delete && \ 
-# 	rm -rf /opt/rocm/lib/llvm/ && \
-# 	mkdir /build/vsmlrt/opt && \
-# 	mv /opt/rocm* /build/vsmlrt/opt/
-RUN mkdir /build/vsmlrt/opt && \
+RUN find /opt/rocm/lib/rocblas/library/ -type f -not -name TensileManifest.txt -not -name '*gfx1100*' -delete && \ 
+	rm -rf /opt/rocm/lib/llvm/ && \
+	mkdir /build/vsmlrt/opt && \
 	mv /opt/rocm* /build/vsmlrt/opt/
+# RUN mkdir /build/vsmlrt/opt && \
+# 	mv /opt/rocm* /build/vsmlrt/opt/
 
 # ========================================================= #
 
