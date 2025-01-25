@@ -200,7 +200,7 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-6 cuda-cudart-dev-12-6 tensorrt-dev
+	apt-get install -y cmake cuda-nvcc-12-8 cuda-cudart-dev-12-8 tensorrt-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -235,7 +235,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64  \
-	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-6
+	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-8
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=lsmash /build/lsmash/ /
