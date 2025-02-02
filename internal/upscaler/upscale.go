@@ -149,7 +149,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
 		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy", "-seek2any", "1",
-		"-g", "24"
+		"-g", "24",
 		"-y", combinedFile,
 	)
 	defer t.captureOutput(ffmpeg)()
