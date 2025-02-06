@@ -29,7 +29,7 @@ type Task struct {
 	// logFile *os.File
 }
 
-const FramesPerPart = 1440 // about 1 minute for 24fps
+const FramesPerPart = 7200 // about 5 minutes for 24fps
 
 func (t *Task) Upscale(ctx context.Context) error {
 	if fileExists(t.Output) {
