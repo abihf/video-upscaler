@@ -42,7 +42,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R70
+ARG VAPOURSYNTH_VER=R65
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -68,7 +68,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG NV_CODEC_VER=12.2.72.0
+ARG NV_CODEC_VER=13.0.19.0
 ADD --link https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NV_CODEC_VER}/nv-codec-headers-${NV_CODEC_VER}.tar.gz .
 
 RUN bash <<EOF
