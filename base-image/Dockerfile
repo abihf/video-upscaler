@@ -173,6 +173,30 @@ RUN bash <<EOF
 EOF
 
 # ========================================================= #
+FROM dev AS bestsource
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y meson libzimg-dev libxxhash-dev
+
+COPY --link --from=cflags /cflags.sh .
+ARG BESTSOURCE_VER=R10
+ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
+
+COPY --link --from=vapoursynth /build/vapoursynth/ /
+COPY --link --from=ffmpeg /build/ffmpeg/ /
+
+RUN bash -euxo pipefail <<EOF
+	(
+		source cflags.sh
+		cd bestsource
+		git submodule update --init
+		meson setup --prefix=/usr build
+		meson compile -C build
+		meson install --destdir /build/bestsource -C build
+	)
+
+EOF
+
+# ========================================================= #
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
@@ -235,10 +259,10 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64  \
-	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libnvinfer-bin tensorrt-libs cuda-cudart-12-8
+	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libxxhash0 libnvinfer-bin tensorrt-libs cuda-cudart-12-8
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
-COPY --link --from=lsmash /build/lsmash/ /
+COPY --link --from=bestsource /build/bestsource/ /
 COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 VOLUME [ "/models" ]

@@ -39,6 +39,6 @@ def process(src):
 
 
 args = globals()
-src = core.lsmas.LWLibavSource(args['in'], prefer_hw=0, cachefile=args['lwi'])
+src = core.bs.VideoSource(args['in'], cachemode=3, cachepath=args['lwi'])
 video = process(src[int(args['from']):int(args['to'])])
 video.set_output()
