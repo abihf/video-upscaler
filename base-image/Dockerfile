@@ -5,7 +5,6 @@
 FROM ubuntu:24.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl
@@ -82,7 +81,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n6.1.2
+ARG FFMPEG_VER=n7.1
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -112,67 +111,6 @@ RUN bash -euxo pipefail <<EOF
 EOF
 
 # ========================================================= #
-
-FROM dev AS lsmash
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev
-
-COPY --link --from=cflags /cflags.sh .
-
-ARG OBUPARSE_VER=478adcc872d5a8a19443e87910508e261a0a60ba
-ADD --link https://github.com/dwbuiten/obuparse/archive/${OBUPARSE_VER}.tar.gz obuparse-${OBUPARSE_VER}.tar.gz
-
-RUN bash <<EOF
-	set -euxo pipefail
-	tar xf obuparse-${OBUPARSE_VER}.tar.gz
-	(
-		source cflags.sh
-		cd obuparse-${OBUPARSE_VER}
-		make -s
-		make install
-		mkdir -p /build/lsmash/usr/lib
-		mkdir -p /build/lsmash/usr/include
-		make install PREFIX=/build/lsmash/usr
-	)
-	rm -rf obuparse-${OBUPARSE_VER}
-EOF
-
-ARG LSMASH_VER=62a93fb6a23b013d38f30fcb827c2abda69ee3d1
-ADD --link https://github.com/vimeo/l-smash/archive/${LSMASH_VER}.tar.gz l-smash-${LSMASH_VER}.tar.gz
-
-COPY --link --from=ffmpeg /build/ffmpeg/ /
-RUN bash <<EOF
-	set -euxo pipefail
-	tar xf l-smash-${LSMASH_VER}.tar.gz
-	(
-		source cflags.sh
-		cd l-smash-${LSMASH_VER} 
-		./configure --prefix=/usr --enable-shared --disable-static 
-		make -s
-		make install 
-		make DESTDIR=/build/lsmash install-lib
-	)
-	rm -rf l-smash-${LSMASH_VER}
-EOF
-
-ARG LSMASH_PLUGIN_VER=1194.0.0.0
-ADD --link https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/archive/${LSMASH_PLUGIN_VER}.tar.gz L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
-
-COPY --link --from=vapoursynth /build/vapoursynth/ /
-RUN bash <<EOF
-	set -euxo pipefail
-	tar xf L-SMASH-Works-${LSMASH_PLUGIN_VER}.tar.gz
-	(
-		source cflags.sh
-		cd L-SMASH-Works-${LSMASH_PLUGIN_VER}/VapourSynth
-		meson setup --prefix=/usr build
-		meson compile -C build
-		meson install --destdir /build/lsmash -C build
-	)
-	rm -rf L-SMASH-Works-${LSMASH_PLUGIN_VER}
-EOF
-
-# ========================================================= #
 FROM dev AS bestsource
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
@@ -193,7 +131,6 @@ RUN bash -euxo pipefail <<EOF
 		meson compile -C build
 		meson install --destdir /build/bestsource -C build
 	)
-
 EOF
 
 # ========================================================= #
@@ -258,8 +195,8 @@ EOF
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.12t64  \
-	libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libxxhash0 libnvinfer-bin tensorrt-libs cuda-cudart-12-8
+	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libxxhash0 \
+	libnvinfer-bin tensorrt-libs cuda-cudart-12-8
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
