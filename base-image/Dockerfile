@@ -1,4 +1,4 @@
-#syntax=docker/dockerfile:1-labs
+#syntax=docker/dockerfile:1
 
 # base image with prepared apt
 # it also re-enable apt cache
@@ -116,7 +116,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
 COPY --link --from=cflags /cflags.sh .
-ARG BESTSOURCE_VER=R11
+ARG BESTSOURCE_VER=R8
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -161,7 +161,7 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-8 cuda-cudart-dev-12-8 tensorrt-dev
+	apt-get install -y cmake cuda-nvcc-12-9 cuda-cudart-dev-12-9 libnvinfer-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -196,7 +196,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libxxhash0 \
-	libnvinfer-bin tensorrt-libs cuda-cudart-12-8
+	libnvinfer-bin libnvinfer-lean10 cuda-cudart-12-9
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
