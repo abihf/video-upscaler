@@ -63,7 +63,7 @@ EOF
 
 FROM dev AS ffmpeg
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libx264-dev libx265-dev libzimg-dev python3-dev
+	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libzimg-dev python3-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -93,18 +93,18 @@ RUN bash -euxo pipefail <<EOF
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
-			--enable-gpl \
+			--disable-ffplay \
+			--disable-doc \
+			--disable-swresample \
+			--disable-swscale \
 			--enable-lto \
 			--enable-libopus \
 			--enable-libtheora \
 			--enable-libvpx \
-			--enable-libx264 \
-			--enable-libx265 \
 			--enable-nvdec \
 			--enable-nvenc \
-			--enable-shared \
-			--enable-version3
-		make -s -j8
+			--enable-shared
+		make -s -j30
 		make DESTDIR=/build/ffmpeg install
 	)
 	rm -rf ffmpeg-${FFMPEG_VER}
@@ -195,8 +195,8 @@ EOF
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libx264-164 libx265-199 libxxhash0 \
-	libnvinfer-bin libnvinfer-lean10 cuda-cudart-12-9
+	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
+	libnvinfer-bin libnvinfer10 cuda-cudart-12-9
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
