@@ -95,8 +95,6 @@ RUN bash -euxo pipefail <<EOF
 			--disable-static \
 			--disable-ffplay \
 			--disable-doc \
-			--disable-swresample \
-			--disable-swscale \
 			--enable-lto \
 			--enable-libopus \
 			--enable-libtheora \
