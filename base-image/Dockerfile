@@ -19,7 +19,7 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y gcc-14 g++-14 build-essential git pkg-config
+	apt-get install -y gcc-14 g++-14 mold build-essential git pkg-config
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
@@ -30,7 +30,7 @@ COPY <<EOF /cflags.sh
 	export CXX=g++-14
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=gold"
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=mold"
 EOF
 
 # ========================================================= #
