@@ -123,7 +123,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
 COPY --link --from=cflags /cflags.sh .
-ARG BESTSOURCE_VER=R8
+ARG BESTSOURCE_VER=R12
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -134,6 +134,7 @@ RUN bash -euxo pipefail <<EOF
 		source cflags.sh
 		cd bestsource
 		git submodule update --init
+		export AR=llvm-ar-20
 		meson setup --prefix=/usr build
 		meson compile -C build
 		meson install --destdir /build/bestsource -C build
@@ -185,7 +186,7 @@ RUN bash -euxo pipefail <<EOF
 		cmake .. \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
 			-D CMAKE_CXX_COMPILER=clang++-20 \
-			-D CMAKE_CXX_FLAGS="$CXXFLAGS" \
+			-D CMAKE_CXX_FLAGS="\$CXXFLAGS" \
 			-D TENSORRT_HOME="/opt/TensorRT"
 		make
 	)
