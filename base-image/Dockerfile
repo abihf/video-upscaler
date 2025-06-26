@@ -1,5 +1,3 @@
-#syntax=docker/dockerfile:1
-
 # base image with prepared apt
 # it also re-enable apt cache
 FROM ubuntu:24.04 AS base
@@ -19,18 +17,25 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y gcc-14 g++-14 mold build-essential git pkg-config
+	apt-get install -y build-essential git pkg-config gpg
+COPY <<EOF /etc/apt/sources.list.d/llvm.list
+deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main
+EOF
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+	apt-get update && \
+	apt-get install -y clang-20 clang++-20 lld-20
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
-	export CC=gcc-14
-	export CXX=g++-14
+	export CC=clang-20
+	export CXX=clang++-20
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=mold"
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
 EOF
 
 # ========================================================= #
@@ -81,7 +86,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n6.1.2
+ARG FFMPEG_VER=n7.1.1
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -90,6 +95,9 @@ RUN bash -euxo pipefail <<EOF
 		source cflags.sh
 		cd FFmpeg-${FFMPEG_VER}
 		./configure \
+			--cc=clang-20 \
+			--cxx=clang++-20 \
+			--extra-ldflags="-fuse-ld=lld-20" \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
