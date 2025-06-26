@@ -35,7 +35,7 @@ COPY <<EOF /cflags.sh
 	export CXX=clang++-20
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-20"
 EOF
 
 # ========================================================= #
@@ -46,7 +46,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VAPOURSYNTH_VER=R70
+ARG VAPOURSYNTH_VER=R72
 ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -94,6 +94,7 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd FFmpeg-${FFMPEG_VER}
+		export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
 		./configure \
 			--cc=clang-20 \
 			--cxx=clang++-20 \
@@ -110,7 +111,7 @@ RUN bash -euxo pipefail <<EOF
 			--enable-nvdec \
 			--enable-nvenc \
 			--enable-shared
-		make -s -j30
+		make -s -j$(nproc)
 		make DESTDIR=/build/ffmpeg install
 	)
 	rm -rf ffmpeg-${FFMPEG_VER}
@@ -183,7 +184,7 @@ RUN bash -euxo pipefail <<EOF
 		cd vs-mlrt/vstrt/build
 		cmake .. \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_CXX_COMPILER=g++-14 \
+			-D CMAKE_CXX_COMPILER=clang++-20 \
 			-D CMAKE_CXX_FLAGS="$CXXFLAGS" \
 			-D TENSORRT_HOME="/opt/TensorRT"
 		make
