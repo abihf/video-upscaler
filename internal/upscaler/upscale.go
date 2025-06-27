@@ -1,6 +1,7 @@
 package upscaler
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -211,7 +212,8 @@ func (t *Task) getTotalFrameStr() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	os.WriteFile(frameCountFile, stdout, 0644)
+	lnIndex := bytes.IndexByte(stdout, '\n')
+	os.WriteFile(frameCountFile, stdout[:lnIndex], 0644)
 	return stdout, nil
 }
 
