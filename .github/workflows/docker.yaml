@@ -19,6 +19,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      attestations: write
 
     steps:
       - name: Checkout repository
@@ -93,11 +94,19 @@ jobs:
 
       - name: Build Worker image
         uses: docker/build-push-action@v4
+        id: push
         with:
           target: worker
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd
           cache-from: type=gha,scope=cli
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
