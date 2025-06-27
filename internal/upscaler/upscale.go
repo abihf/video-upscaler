@@ -15,7 +15,7 @@ import (
 	"github.com/abihf/video-upscaler/internal/logstream"
 )
 
-var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10")
+var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10", "-noautorotate")
 var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-c:v", "hevc_nvenc", "-profile:v", "main10",
 	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "16", "-temporal_aq", "1", "-spatial_aq", "1", "-g", "24", "-strict_gop", "1")
 
