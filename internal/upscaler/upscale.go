@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/logstream"
 )
 
@@ -131,7 +130,6 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 	fullArgs = append(fullArgs, "-y", outfile)
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
 	ffmpeg.Stdin = vspipeOut
-	ffmet.Handle(ffmpeg)
 	defer t.captureOutput(ffmpeg)()
 
 	return awaitAll(func(cmd *exec.Cmd) error {
@@ -154,7 +152,6 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 		"-y", combinedFile,
 	)
 	defer t.captureOutput(ffmpeg)()
-	ffmet.Handle(ffmpeg)
 
 	err := ffmpeg.Run()
 	if err != nil {

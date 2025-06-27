@@ -5,16 +5,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
-	"net/http"
 	"os"
 
-	"github.com/abihf/video-upscaler/internal/ffmet"
 	"github.com/abihf/video-upscaler/internal/model"
 	"github.com/abihf/video-upscaler/internal/upscaler"
 	"github.com/hibiken/asynq"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 )
 
@@ -55,23 +51,9 @@ var workerCmd = &cobra.Command{
 			},
 		)
 
-		if workerFlags.metricsExporterAddr != "" {
-			ffmet.Active = true
-			go runMetricsServer()
-		}
-
 		u := upscaler.Handler{TempDir: workerFlags.tempDir}
 		mux := asynq.NewServeMux()
 		mux.Handle(model.TaskVideoUpscaleType, &u)
 		return srv.Run(mux)
 	},
-}
-
-func runMetricsServer() {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		io.WriteString(w, "OK")
-	})
-	http.ListenAndServe(workerFlags.metricsExporterAddr, mux)
 }
