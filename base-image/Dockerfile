@@ -145,7 +145,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-15-dev zlib1g-dev libzstd-dev
+	apt-get install -y meson libzimg-dev llvm-20-dev zlib1g-dev libzstd-dev
 
 COPY --link --from=cflags /cflags.sh .
 
