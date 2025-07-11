@@ -149,20 +149,21 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG AKARINVS_VER=8b7ff6dcc85bc9935789c799e63f1388dfbd1bd4
-ADD --link https://github.com/AkarinVS/vapoursynth-plugin/archive/${AKARINVS_VER}.tar.gz vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+ARG AKARINVS_VER=1.0.0
+ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 RUN bash -euxo pipefail <<EOF
-	tar xf vapoursynth-plugin-${AKARINVS_VER}.tar.gz
+	tar xf vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
 	(
 		source cflags.sh
-		cd vapoursynth-plugin-${AKARINVS_VER}
+		cd akarin-vapoursynth-plugin-${AKARINVS_VER}
+		export LLVM_CONFIG=llvm-config-20
 		meson setup --prefix=/usr build -Dstatic-llvm=true
 		meson compile -C build
 		meson install --destdir /build/akarin -C build
 	)
-	rm -rf vapoursynth-plugin-${AKARINVS_VER}
+	rm -rf akarin-vapoursynth-plugin-${AKARINVS_VER}
 EOF
 
 # ========================================================= #
@@ -208,7 +209,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
-COPY --link --from=akarin /build/akarin/ /
+# COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 VOLUME [ "/models" ]
 ENV NVIDIA_DRIVER_CAPABILITIES=all
