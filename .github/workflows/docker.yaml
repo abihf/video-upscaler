@@ -81,7 +81,7 @@ jobs:
         with:
           context: base-image
           build-args: |
-            ENABLE_APT_CACHE=0
+            ENABLE_APT_CACHE=1
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
@@ -91,6 +91,8 @@ jobs:
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,scope=base,ignore-error=true
 
       - name: Build Worker image
         uses: docker/build-push-action@v4
