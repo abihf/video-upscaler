@@ -105,6 +105,7 @@ RUN bash -euxo pipefail <<EOF
 			--disable-ffplay \
 			--disable-doc \
 			--enable-lto \
+                        --enable-libzimg \
 			--enable-libopus \
 			--enable-libtheora \
 			--enable-libvpx \
