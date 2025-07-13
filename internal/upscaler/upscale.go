@@ -17,7 +17,6 @@ import (
 
 var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10", "-noautorotate")
 var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-c:v", "hevc_nvenc", "-profile:v", "main10",
-	"-vf", "zscale=min=bt2020c:m=bt2020c:rin=tv:r=tv:pin=bt2020:p=bt2020:tin=bt2020-10:t=bt2020-10,hwupload_cuda",
 	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "16", "-temporal_aq", "1", "-spatial_aq", "1", "-g", "24", "-strict_gop", "1")
 
 type Task struct {
