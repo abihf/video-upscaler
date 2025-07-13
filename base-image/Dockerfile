@@ -36,6 +36,7 @@ COPY <<EOF /cflags.sh
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
 	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-20"
+	export AR=llvm-ar-20
 EOF
 
 # ========================================================= #
@@ -96,8 +97,8 @@ RUN bash -euxo pipefail <<EOF
 		cd FFmpeg-${FFMPEG_VER}
 		export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now"
 		./configure \
-			--cc=clang-20 \
-			--cxx=clang++-20 \
+			--cc="\$CC" \
+			--cxx="\$CXX" \
 			--extra-ldflags="-fuse-ld=lld-20" \
 			--prefix=/usr \
 			--disable-debug \
@@ -135,7 +136,6 @@ RUN bash -euxo pipefail <<EOF
 		source cflags.sh
 		cd bestsource
 		git submodule update --init
-		export AR=llvm-ar-20
 		meson setup --prefix=/usr build
 		meson compile -C build
 		meson install --destdir /build/bestsource -C build
@@ -187,7 +187,7 @@ RUN bash -euxo pipefail <<EOF
 		cd vs-mlrt/vstrt/build
 		cmake .. \
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
-			-D CMAKE_CXX_COMPILER=clang++-20 \
+			-D CMAKE_CXX_COMPILER="\$CXX" \
 			-D CMAKE_CXX_FLAGS="\$CXXFLAGS" \
 			-D TENSORRT_HOME="/opt/TensorRT"
 		make
