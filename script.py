@@ -26,7 +26,7 @@ def process(src):
 		rgb = vsmlrt.RIFE(rgb, model=vsmlrt.RIFEModel[model_name].value,
 						  ensemble=True, backend=be, scale=1.0, _implementation=1)
 
-	video = core.resize.Bicubic(rgb, format=vs.YUV420P10, matrix_s="709")
+	video = core.resize.Bicubic(rgb, format=vs.YUV420P10, matrix=10, transfer=14, primaries=9)
 	return video
 
 
