@@ -5,7 +5,7 @@ import vsmlrt
 
 
 def process(src):
-	rgb = core.resize.Bicubic(src, format=vs.RGBS, matrix_in_s="709")
+	rgb = core.resize.Bicubic(src, format=vs.RGBH, matrix_in_s="709")
 
 	num_streams = int(os.getenv('VSPIPE_NUM_STREAMS', '1'))
 	be = vsmlrt.Backend.TRT(fp16=True, output_format=1)
