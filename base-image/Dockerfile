@@ -171,11 +171,11 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-9 cuda-cudart-dev-12-9 libnvinfer-dev
+	apt-get install -y cmake cuda-nvcc-13-0 cuda-cudart-dev-13-0 libnvinfer-dev
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=467e4fc62f1eddf65ca7a2a3eeca74b3226cd44e
+ARG VSMLRT_VER=363d4e93f34730e9ef7ad8c74fda7e8c58802289
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -206,7 +206,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
-	libnvinfer-bin libnvinfer10 cuda-cudart-12-9
+	libnvinfer-bin libnvinfer10 cuda-cudart-13-0
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
