@@ -5,10 +5,10 @@ import vsmlrt
 
 
 def process(src):
-	rgb = core.resize.Bicubic(src, format=vs.RGBH, matrix_in_s="709")
+	rgb = core.resize.Bicubic(src, format=vs.RGBH, matrix_in_s="709", transfer_in_s="709", primaries_in_s="709")
 
-	num_streams = int(os.getenv('VSPIPE_NUM_STREAMS', '1'))
-	be = vsmlrt.Backend.TRT(fp16=True, output_format=1)
+	num_streams = int(os.getenv('VSPIPE_NUM_STREAMS', '2'))
+	be = vsmlrt.Backend.TRT(fp16=True, output_format=1, num_streams=num_streams)
 
 	model_path = os.getenv('VISPIPE_MODEL_PATH')
 	if model_path is None:
