@@ -171,7 +171,7 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-13-0 cuda-cudart-dev-13-0 libnvinfer-dev
+	apt-get install -y cmake cuda-nvcc-12-9 cuda-cudart-dev-12-9 libnvinfer-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -206,7 +206,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
-	libnvinfer-bin libnvinfer10 cuda-cudart-13-0
+	libnvinfer-bin libnvinfer10 cuda-cudart-12-9
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
