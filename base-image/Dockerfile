@@ -5,10 +5,12 @@ ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
-	apt-get install -y curl
+	apt-get install -y curl gpg
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
+	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main' > /etc/apt/sources.list.d/llvm.list
+	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 	apt-get update
 	apt-get upgrade -y
 EOF
@@ -17,14 +19,7 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y build-essential git pkg-config gpg
-COPY <<EOF /etc/apt/sources.list.d/llvm.list
-deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main
-EOF
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-	apt-get update && \
-	apt-get install -y clang-20 clang++-20 lld-20
+	apt-get install -y build-essential git pkg-config clang-20 clang++-20 lld-20
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
@@ -171,7 +166,7 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-12-9 cuda-cudart-dev-12-9 libnvinfer-dev
+	apt-get install -y cmake cuda-nvcc-13-0 cuda-cudart-dev-13-0 libnvinfer-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -206,7 +201,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
-	libnvinfer-bin libnvinfer10 cuda-cudart-12-9
+	libnvinfer-bin libnvinfer10 cuda-cudart-13-0
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
