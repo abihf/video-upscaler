@@ -18,7 +18,8 @@ import (
 var ffInputArgs = parseArgsFromEnv("FFMPEG_INPUT_ARGS", "-hide_banner", "-loglevel", "info", "-stats_period", "10", "-noautorotate",
 	"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709")
 var ffTranscodeArgs = parseArgsFromEnv("FFMPEG_TRANSCODE_ARGS", "-pix_fmt", "p010le", "-c:v", "hevc_nvenc", "-profile:v", "main10",
-	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "16", "-temporal_aq", "1", "-bf", "3", "-aud", "1", "-b_ref_mode", "middle", "-g", "60", "-forced-idr", "1")
+	"-preset:v", "slow", "-rc:v", "vbr", "-cq:v", "16", "-spatial-aq", "1", "-bf", "3", "-aud", "1", "-b_ref_mode", "middle",
+	"-g", "48", "-keyint_min", "48", "-forced-idr", "1", "-sc_threshold", "0", "-fflags", "+genpts", "-rc-lookahead", "20")
 
 type Task struct {
 	Input  string
@@ -95,7 +96,7 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, frameIndex)
 
 		t.log.With("file", partFileTemp).Info("Upscaling part")
-		err := t.upscalePart(ctx, frameIndex, frameIndex+FramesPerPart, partFileTemp)
+		err := t.upscalePart(ctx, frameIndex, frameIndex+FramesPerPart-1, partFileTemp)
 		if err != nil {
 			return err
 		}
@@ -116,8 +117,8 @@ func (t *Task) upscalePart(ctx context.Context, from, to int, outfile string) er
 		"-c", "y4m", "/upscale/script.py",
 		"-a", "in="+t.Input,
 		"-a", "cache="+cacheName,
-		"-a", fmt.Sprintf("from=%d", from),
-		"-a", fmt.Sprintf("to=%d", to),
+		"--start", strconv.Itoa(from),
+		"--end", strconv.Itoa(to),
 		"-")
 	vspipeOut, err := vspipe.StdoutPipe()
 	if err != nil {
@@ -148,8 +149,7 @@ func (t *Task) finalize(ctx context.Context, listFileName string) error {
 	// combine the video files and merge it with original audio & subtitles
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info",
 		"-f", "concat", "-safe", "0", "-i", listFileName, "-f", "matroska", "-i", t.Input,
-		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy", "-seek2any", "1",
-		"-g", "24",
+		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", "-c", "copy",
 		"-y", combinedFile,
 	)
 	defer t.captureOutput(ffmpeg)()

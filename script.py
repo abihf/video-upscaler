@@ -31,5 +31,5 @@ def process(src):
 
 args = globals()
 src = core.bs.VideoSource(args['in'], cachemode=3, cachepath=args['cache'])
-video = process(src[int(args['from']):int(args['to'])])
+video = process(src)
 video.set_output()
