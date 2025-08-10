@@ -87,7 +87,8 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 	defer listFile.Close()
 
 	for frameIndex := 0; frameIndex < totalFrame; frameIndex += FramesPerPart {
-		partFileName := fmt.Sprintf("%s/%07d+%d.mkv", t.TempDir, frameIndex, FramesPerPart)
+		endFrame := min(frameIndex+FramesPerPart, totalFrame) - 1
+		partFileName := fmt.Sprintf("%s/%07d-%07d.mkv", t.TempDir, frameIndex, endFrame)
 		fmt.Fprintf(listFile, "file '%s'\n", partFileName)
 		if fileExists(partFileName) {
 			continue
@@ -96,7 +97,8 @@ func (t *Task) upscaleParts(ctx context.Context, listFileName string) error {
 		partFileTemp := fmt.Sprintf("%s/work-%07d.mkv", t.TempDir, frameIndex)
 
 		t.log.With("file", partFileTemp).Info("Upscaling part")
-		err := t.upscalePart(ctx, frameIndex, frameIndex+FramesPerPart-1, partFileTemp)
+
+		err := t.upscalePart(ctx, frameIndex, endFrame, partFileTemp)
 		if err != nil {
 			return err
 		}
