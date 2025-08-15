@@ -3,11 +3,10 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 
-	"github.com/abihf/video-upscaler/internal/activity"
+	"github.com/abihf/video-upscaler/internal/activities"
 	"github.com/abihf/video-upscaler/internal/conn"
-	"github.com/abihf/video-upscaler/internal/workflow"
+	"github.com/abihf/video-upscaler/internal/workflows"
 	"go.temporal.io/sdk/worker"
 )
 
@@ -19,15 +18,12 @@ func Run(ctx context.Context) error {
 	}
 	defer c.Close()
 
-	name, _ := os.Hostname()
-	w := worker.New(c, "upscaler", worker.Options{
-		MaxConcurrentActivityExecutionSize: 1,
+	w := worker.New(c, "upscaler", worker.Options{})
 
-		Identity: name,
-	})
-
-	w.RegisterWorkflow(workflow.Upscale)
-	w.RegisterActivity(activity.Upscale)
+	w.RegisterWorkflow(workflows.Upscale)
+	w.RegisterActivity(activities.Prepare)
+	w.RegisterActivity(activities.Upscale)
+	w.RegisterActivity(activities.MoveFile)
 
 	err = w.Run(worker.InterruptCh())
 	if err != nil {

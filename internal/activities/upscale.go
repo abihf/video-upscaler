@@ -1,4 +1,4 @@
-package activity
+package activities
 
 import (
 	"context"
@@ -6,28 +6,39 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
-	tact "go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/activity"
 )
 
-//	vspipe -c y4m -a "in=${src}" -a "cache=${tmpdir}/cache" /upscale/script.py - | ffmpeg -hide_banner -loglevel info \
-//	  -noautorotate -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
-//	  -i - -i "${src}" -map_metadata 1 -map 0:v:0 -map 1 -map -1:v:0 \
-//	  -pix_fmt p010le -c:v hevc_nvenc -profile:v main10 -preset:v slow -rc:v vbr -cq:v 16 -spatial-aq 1 -bf 3 -aud 1 -b_ref_mode middle -g 48 -keyint_min 48 -forced-idr 1 -sc_threshold 0 -fflags +genpts -rc-lookahead 20 \
-//	  -y "${tmpfile}"
-func Upscale(ctx context.Context, inFile string, outFile string) (string, error) {
-	info := tact.GetInfo(ctx)
+func Prepare(ctx context.Context, outFile string) (string, error) {
+	info := activity.GetInfo(ctx)
 	id := info.WorkflowExecution.ID
 	tmpDir := filepath.Join("/media/data/upscaler", id)
-	os.MkdirAll(tmpDir, 0755)
+	err := os.MkdirAll(tmpDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
+	}
 
-	cacheDir := filepath.Join(tmpDir, "cache")
+	return tmpDir, nil
+}
+
+func MoveFile(ctx context.Context, inFile string, outFile string) error {
+	err := os.Rename(inFile, outFile)
+	if err != nil {
+		return fmt.Errorf("failed to move file from %s to %s: %w", inFile, outFile, err)
+	}
+
+	return nil
+}
+
+func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) (string, error) {
+	cacheFile := filepath.Join(tmpDir, "cache")
 	tmpOut := filepath.Join(tmpDir, "out.mkv")
-	os.MkdirAll(cacheDir, 0755)
 
 	// Create vspipe command
 	vspipeCmd := exec.Command("vspipe", "-c", "y4m",
-		"-a", fmt.Sprintf("in=%s", inFile), "-a", fmt.Sprintf("cache=%s", cacheDir),
+		"-a", fmt.Sprintf("in=%s", inFile), "-a", fmt.Sprintf("cache=%s", cacheFile),
 		"/upscale/script.py", "-")
 
 	// Create ffmpeg command
@@ -40,6 +51,17 @@ func Upscale(ctx context.Context, inFile string, outFile string) (string, error)
 		"-g", "48", "-keyint_min", "48", "-forced-idr", "1", "-sc_threshold", "0", "-fflags", "+genpts", "-rc-lookahead", "20",
 		"-y", tmpOut)
 
+	ffmpegLogFile := filepath.Join(tmpDir, "ffmpeg.log")
+	ffmpegLog, err := os.OpenFile(ffmpegLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to open ffmpeg log file: %w", err)
+	}
+	defer func() {
+		fmt.Fprintf(ffmpegLog, "\n\n------------\n\n")
+		ffmpegLog.Close()
+	}()
+	ffmpegCmd.Stdout = ffmpegLog
+
 	// Create pipe between commands
 	pipe, err := vspipeCmd.StdoutPipe()
 	if err != nil {
@@ -48,18 +70,25 @@ func Upscale(ctx context.Context, inFile string, outFile string) (string, error)
 	ffmpegCmd.Stdin = pipe
 
 	doneCh := make(chan struct{}, 1)
-	cancelCh := tact.GetWorkerStopChannel(ctx)
+	cancelCh := activity.GetWorkerStopChannel(ctx)
 
+	timer := time.NewTimer(10 * time.Second)
 	go func() {
-		select {
-		case <-doneCh:
-			return
-		case <-cancelCh:
-			if vspipeCmd.Process != nil {
-				vspipeCmd.Process.Kill()
-			}
-			if ffmpegCmd.Process != nil {
-				ffmpegCmd.Process.Kill()
+		for {
+			select {
+			case <-doneCh:
+				return
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				activity.RecordHeartbeat(ctx, "Waiting for vspipe to complete...")
+			case <-cancelCh:
+				if vspipeCmd.Process != nil {
+					vspipeCmd.Process.Kill()
+				}
+				if ffmpegCmd.Process != nil {
+					ffmpegCmd.Process.Kill()
+				}
 			}
 		}
 	}()
@@ -93,10 +122,5 @@ func Upscale(ctx context.Context, inFile string, outFile string) (string, error)
 	}
 	doneCh <- struct{}{}
 
-	err = os.Rename(tmpOut, outFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to move output file: %w", err)
-	}
-
-	return fmt.Sprintf("Upscaled %s to %s", inFile, outFile), nil
+	return tmpOut, nil
 }
