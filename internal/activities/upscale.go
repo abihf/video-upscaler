@@ -76,7 +76,7 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 	doneCh := make(chan struct{}, 1)
 	cancelCh := activity.GetWorkerStopChannel(ctx)
 
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTicker(10 * time.Second)
 	prog := captureFfmpegProgress(ffmpegCmd)
 	go func() {
 		for {
