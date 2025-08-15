@@ -1,11 +1,17 @@
 package workflows
 
 import (
+	"time"
+
 	"github.com/abihf/video-upscaler/internal/activities"
 	"go.temporal.io/sdk/workflow"
 )
 
 func Upscale(ctx workflow.Context, inFile string, outFile string) error {
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 2 * time.Hour,
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
 
 	var tmpDir string
 	err := workflow.ExecuteActivity(ctx, activities.Prepare, outFile).Get(ctx, &tmpDir)
