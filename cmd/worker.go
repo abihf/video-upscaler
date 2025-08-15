@@ -3,14 +3,7 @@
 package cmd
 
 import (
-	"context"
-	"encoding/json"
-	"log/slog"
-	"os"
-
-	"github.com/abihf/video-upscaler/internal/model"
-	"github.com/abihf/video-upscaler/internal/upscaler"
-	"github.com/hibiken/asynq"
+	"github.com/abihf/video-upscaler/internal/worker"
 	"github.com/spf13/cobra"
 )
 
@@ -31,29 +24,6 @@ var workerCmd = &cobra.Command{
 	Short: "Run upscale worker",
 
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{})))
-		srv := asynq.NewServer(
-			redisConn(),
-			asynq.Config{
-				BaseContext: cmd.Context,
-				Concurrency: 1,
-				Queues: map[string]int{
-					"critical": 6,
-					"default":  3,
-					"low":      1,
-				},
-				// See the godoc for other configuration options
-				ErrorHandler: asynq.ErrorHandlerFunc(func(_ context.Context, task *asynq.Task, err error) {
-					var p model.VideoUpscaleTask
-					json.Unmarshal(task.Payload(), &p)
-					slog.With("err", err, "task", p).Error("Error processing task")
-				}),
-			},
-		)
-
-		u := upscaler.Handler{TempDir: workerFlags.tempDir}
-		mux := asynq.NewServeMux()
-		mux.Handle(model.TaskVideoUpscaleType, &u)
-		return srv.Run(mux)
+		return worker.Run(cmd.Context())
 	},
 }

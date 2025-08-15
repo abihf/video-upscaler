@@ -4,10 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-	"path/filepath"
-
-	"github.com/abihf/video-upscaler/internal/queue"
+	"github.com/abihf/video-upscaler/internal/task"
 	"github.com/spf13/cobra"
 )
 
@@ -33,21 +30,7 @@ var addCmd = &cobra.Command{
 	ValidArgsFunction:     cobra.FixedCompletions([]string{"mkv"}, cobra.ShellCompDirectiveFilterFileExt),
 
 	RunE: func(cmd *cobra.Command, args []string) error {
-		in, err := filepath.Abs(args[0])
-		if err != nil {
-			return err
-		}
-		if !fileExists(in) {
-			return fmt.Errorf("input file %s not exist", in)
-		}
 
-		out, err := filepath.Abs(args[1])
-		if err != nil {
-			return err
-		}
-		if fileExists(out) {
-			return fmt.Errorf("output file %s already exist", out)
-		}
-		return queue.Add(cmd.Context(), redisConn(), in, out, addFlags.priority, addFlags.force)
+		return task.Add(cmd.Context(), args[0], args[1], addFlags.priority, addFlags.force)
 	},
 }
