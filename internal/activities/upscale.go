@@ -1,11 +1,14 @@
 package activities
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"go.temporal.io/sdk/activity"
@@ -43,6 +46,7 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 
 	// Create ffmpeg command
 	ffmpegCmd := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "info", "-noautorotate",
+		"-progress", "pipe:4",
 		"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
 		"-i", "-", "-i", inFile,
 		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0",
@@ -73,6 +77,7 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 	cancelCh := activity.GetWorkerStopChannel(ctx)
 
 	timer := time.NewTimer(10 * time.Second)
+	prog := captureFfmpegProgress(ffmpegCmd)
 	go func() {
 		for {
 			select {
@@ -81,7 +86,10 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				activity.RecordHeartbeat(ctx, "Waiting for vspipe to complete...")
+				prog.mu.RLock()
+				detail := fmt.Sprintf("Current FPS: %s, Time: %s", prog.fps, prog.time)
+				prog.mu.RUnlock()
+				activity.RecordHeartbeat(ctx, detail)
 			case <-cancelCh:
 				if vspipeCmd.Process != nil {
 					vspipeCmd.Process.Kill()
@@ -123,4 +131,36 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 	doneCh <- struct{}{}
 
 	return tmpOut, nil
+}
+
+type ffmpegProgress struct {
+	mu   sync.RWMutex
+	fps  string
+	time string
+}
+
+func captureFfmpegProgress(cmd *exec.Cmd) *ffmpegProgress {
+	r, w, _ := os.Pipe()
+	cmd.ExtraFiles = append(cmd.ExtraFiles, w)
+	progress := &ffmpegProgress{}
+	go func() {
+		br := bufio.NewReader(r)
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				break
+			}
+
+			if fpsStr, ok := strings.CutPrefix(line, "fps="); ok {
+				progress.mu.Lock()
+				progress.fps = fpsStr
+				progress.mu.Unlock()
+			} else if timeStr, ok := strings.CutPrefix(line, "out_time="); ok {
+				progress.mu.Lock()
+				progress.time = timeStr
+				progress.mu.Unlock()
+			}
+		}
+	}()
+	return progress
 }
