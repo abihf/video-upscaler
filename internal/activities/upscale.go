@@ -24,14 +24,19 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 
 	// Create ffmpeg command
 	ffmpeg := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "info", "-noautorotate",
-		"-progress", "pipe:3", "-stats_period", "10",
+		"-progress", "pipe:3", "-nostats",
 		"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", // force b709
 		"-i", "-", "-i", inFile, // take input from stdin and source file
-		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0", // take video from stdin and other streams from source file
+
+		// take video from stdin and other streams from source file
+		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0",
+
+		// video encoding options
 		"-pix_fmt", "p010le", "-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow",
 		"-rc:v", "vbr", "-cq:v", "16", "-spatial-aq", "1", "-bf", "3", "-aud", "1", "-b_ref_mode", "middle",
 		"-g", "48", "-keyint_min", "48", "-forced-idr", "1", "-sc_threshold", "0", "-fflags", "+genpts", "-rc-lookahead", "20",
-		"-y", tmpOut)
+
+		"-c:a", "copy", "-y", tmpOut)
 
 	// Create pipe between commands
 	pipe, err := vspipe.StdoutPipe()
@@ -70,10 +75,10 @@ func Upscale(ctx context.Context, inFile string, outFile string, tmpDir string) 
 				activity.RecordHeartbeat(ctx, progress.String())
 
 			case <-activity.GetWorkerStopChannel(ctx):
-				if vspipe.Process != nil {
+				if vspipe.Process != nil && vspipe.ProcessState == nil {
 					vspipe.Process.Kill()
 				}
-				if ffmpeg.Process != nil {
+				if ffmpeg.Process != nil && ffmpeg.ProcessState == nil {
 					ffmpeg.Process.Kill()
 				}
 			}
