@@ -18,7 +18,10 @@ func Run(ctx context.Context) error {
 	}
 	defer c.Close()
 
-	w := worker.New(c, "upscaler", worker.Options{})
+	w := worker.New(c, "upscaler", worker.Options{
+		MaxConcurrentActivityExecutionSize: 1,
+		BackgroundActivityContext:          ctx,
+	})
 
 	w.RegisterWorkflow(workflows.Upscale)
 	w.RegisterActivity(activities.Prepare)
