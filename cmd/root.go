@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,10 +44,4 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
-}
-
-func redisConn() asynq.RedisConnOpt {
-	return &asynq.RedisClientOpt{
-		Addr: viper.GetString("redis-addr"),
-	}
 }

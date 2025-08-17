@@ -15,7 +15,6 @@ var workerFlags struct {
 func init() {
 	rootCmd.AddCommand(workerCmd)
 	workerCmd.Flags().StringVar(&workerFlags.tempDir, "temp-dir", getEnv("TEMP_DIR", "/var/cache/upscalers"), "Help message for toggle")
-	workerCmd.Flags().StringVar(&workerFlags.metricsExporterAddr, "metrics-exporter", getEnv("METRICS_EXPORTER", ""), "Help message for toggle")
 }
 
 // workerCmd represents the worker command

@@ -8,11 +8,3 @@ func getEnv(name string, def string) string {
 	}
 	return def
 }
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
-}
