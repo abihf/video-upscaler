@@ -24,13 +24,17 @@ func init() {
 var addCmd = &cobra.Command{
 	Use:   "add [-p priority] [-f] input-file.mkv output-file.mkv",
 	Short: "Add file to queue for upscale",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 
 	DisableFlagsInUseLine: true,
 	ValidArgsFunction:     cobra.FixedCompletions([]string{"mkv"}, cobra.ShellCompDirectiveFilterFileExt),
 
 	RunE: func(cmd *cobra.Command, args []string) error {
+		outFile := ""
+		if len(args) > 1 {
+			outFile = args[1]
+		}
 
-		return task.Add(cmd.Context(), args[0], args[1], addFlags.priority, addFlags.force)
+		return task.Add(cmd.Context(), args[0], outFile, addFlags.priority, addFlags.force)
 	},
 }

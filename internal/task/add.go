@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/abihf/video-upscaler/internal/conn"
 	"go.temporal.io/api/enums/v1"
@@ -21,6 +22,13 @@ func Add(ctx context.Context, inRelative string, outRelative string, priority st
 	}
 	if !fileExists(in) {
 		return fmt.Errorf("input file %s not exist", in)
+	}
+
+	if outRelative == "" {
+		outRelative = strings.Replace(inRelative, "1080p", "2160p", 1)
+		if outRelative == inRelative {
+			return fmt.Errorf("input file %s does not contain 1080p in its name", inRelative)
+		}
 	}
 
 	out, err := filepath.Abs(outRelative)
