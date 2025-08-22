@@ -11,6 +11,8 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	rm cuda-keyring_1.1-1_all.deb
 	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main' > /etc/apt/sources.list.d/llvm.list
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+	echo 'deb https://mkvtoolnix.download/ubuntu/ noble main' > /etc/apt/sources.list.d/mkvtoolnix.list
+	curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg | apt-key add -
 	apt-get update
 	apt-get upgrade -y
 EOF
@@ -201,7 +203,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
-	libnvinfer-bin libnvinfer10 cuda-cudart-13-0
+	libnvinfer-bin libnvinfer10 cuda-cudart-13-0 mkvtoolnix
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
