@@ -23,8 +23,10 @@ func Run(ctx context.Context) error {
 		BackgroundActivityContext:          ctx,
 	})
 
+	w.RegisterWorkflow(workflows.Upscale4K)
 	w.RegisterWorkflow(workflows.Upscale)
 	w.RegisterActivity(activities.Prepare)
+	w.RegisterActivity(activities.Info)
 	w.RegisterActivity(activities.Upscale)
 	w.RegisterActivity(activities.MoveFile)
 
