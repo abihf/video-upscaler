@@ -28,7 +28,9 @@ func Run(ctx context.Context) error {
 	w.RegisterActivity(activities.Prepare)
 	w.RegisterActivity(activities.Info)
 	w.RegisterActivity(activities.Upscale)
+	w.RegisterActivity(activities.Merge)
 	w.RegisterActivity(activities.MoveFile)
+	w.RegisterActivity(activities.Delete)
 
 	err = w.Run(worker.InterruptCh())
 	if err != nil {

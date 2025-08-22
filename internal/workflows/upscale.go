@@ -34,13 +34,24 @@ func Upscale(ctx workflow.Context, inFile string, outFile string) error {
 		return err
 	}
 
-	var tmpOut string
-	err = workflow.ExecuteActivity(ctx, activities.Upscale, inFile, tmpDir).Get(ctx, &tmpOut)
+	var upscaledFile string
+	err = workflow.ExecuteActivity(ctx, activities.Upscale, inFile, tmpDir).Get(ctx, &upscaledFile)
 	if err != nil {
 		return err
 	}
 
-	err = workflow.ExecuteActivity(ctx, activities.MoveFile, tmpOut, outFile).Get(ctx, nil)
+	var mergedFile string
+	err = workflow.ExecuteActivity(ctx, activities.Merge, inFile, upscaledFile, tmpDir).Get(ctx, &mergedFile)
+	if err != nil {
+		return err
+	}
+
+	err = workflow.ExecuteActivity(ctx, activities.MoveFile, mergedFile, outFile).Get(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	err = workflow.ExecuteActivity(ctx, activities.Delete, upscaledFile).Get(ctx, nil)
 	if err != nil {
 		return err
 	}

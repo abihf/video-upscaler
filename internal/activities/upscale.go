@@ -14,31 +14,26 @@ import (
 )
 
 func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) {
-	cacheFile := filepath.Join(tmpDir, "cache")
-	tmpOut := filepath.Join(tmpDir, "out.mkv")
+	cacheFile := getCacheFile(tmpDir)
+	tmpOut := filepath.Join(tmpDir, "upscaled.mkv")
 
 	// Create vspipe command
-	vspipe := exec.Command("vspipe", "-c", "y4m",
+	vspipe := exec.CommandContext(ctx, "vspipe", "-c", "y4m",
 		"-a", fmt.Sprintf("in=%s", inFile), "-a", fmt.Sprintf("cache=%s", cacheFile),
 		"/upscale/script.py", "-")
 
 	// Create ffmpeg command
-	ffmpeg := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "info", "-noautorotate",
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info", "-noautorotate",
 		"-progress", "pipe:3", "-nostats",
 		"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", // force b709
-		"-i", "-", "-i", inFile, // take input from stdin and source file
-
-		// take video from stdin and other streams from source file
-		"-map_metadata", "1", "-map", "0:v:0", "-map", "1", "-map", "-1:v:0",
-
+		"-i", "-",
 		// video encoding options
 		"-pix_fmt", "p010le", "-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow",
 		"-rc:v", "vbr", "-cq:v", "16", "-spatial-aq", "1", "-bf", "3", "-aud", "1", "-b_ref_mode", "middle",
 		"-g", "48", "-keyint_min", "24", "-forced-idr", "1", "-sc_threshold", "0", "-fflags", "+genpts", "-rc-lookahead", "20",
 		"-fps_mode", "cfr", "-r", "24000/1001", "-muxpreload", "0", "-muxdelay", "0", "-avoid_negative_ts", "make_zero", "-start_at_zero",
-		// "-hevc-params", "repeat-headers=1:aud=1",
 
-		"-c:a", "aac", "-b:a", "160k", "-y", tmpOut)
+		"-y", tmpOut)
 
 	// Create pipe between commands
 	pipe, err := vspipe.StdoutPipe()

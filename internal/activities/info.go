@@ -5,14 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"go.temporal.io/sdk/activity"
 )
 
 func Info(ctx context.Context, inFile, tmpDir string) (map[string]string, error) {
-	cacheFile := filepath.Join(tmpDir, "cache")
+	cacheFile := getCacheFile(tmpDir)
 
 	// Create vspipe command
 	vspipe := exec.Command("vspipe", "-i",
