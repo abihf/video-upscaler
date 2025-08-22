@@ -172,8 +172,8 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=363d4e93f34730e9ef7ad8c74fda7e8c58802289
-ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
+ARG VSMLRT_VER=9b7f3baf30e63b40aea82f55fe81009f0f27e636
+ADD --link --keep-git-dir=true https://github.com/abihf/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.1/TensorRT-RTX-1.1.1.26.Linux.x86_64-gnu.cuda-12.9.tar.gz tensorrt.tar.gz
 
