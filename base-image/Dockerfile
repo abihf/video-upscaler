@@ -168,16 +168,20 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y cmake cuda-nvcc-13-0 cuda-cudart-dev-13-0 libnvinfer-dev
+	apt-get install --no-install-recommends -y cmake cuda-nvcc-13-0
 
 COPY --link --from=cflags /cflags.sh .
 
 ARG VSMLRT_VER=363d4e93f34730e9ef7ad8c74fda7e8c58802289
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.1/TensorRT-RTX-1.1.1.26.Linux.x86_64-gnu.cuda-12.9.tar.gz tensorrt.tar.gz
+
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
 RUN bash -euxo pipefail <<EOF
+	mkdir -p /opt/TensorRT
+	tar xf tensorrt.tar.gz --strip-components=1 -C /opt/TensorRT
 	mkdir vs-mlrt/vstrt/build
 	(
 		source cflags.sh
@@ -191,10 +195,12 @@ RUN bash -euxo pipefail <<EOF
 	)
 	mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
 	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/
-	cp vs-mlrt/vstrt/build/libvstrt.so /build/vsmlrt/usr/lib/vapoursynth
+	mkdir -p /build/vsmlrt/opt
+	mv /opt/TensorRT /build/vsmlrt/opt/
+	cp vs-mlrt/vstrt/build/libvstrt_rtx.so /build/vsmlrt/usr/lib/vapoursynth
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
 	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
-	ln -sf /usr/src/tensorrt/bin/trtexec /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
+	ln -sf /opt/TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
 EOF
 
 # ========================================================= #
@@ -203,7 +209,7 @@ FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
-	libnvinfer-bin libnvinfer10 cuda-cudart-13-0 mkvtoolnix
+	mkvtoolnix
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
