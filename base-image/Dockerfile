@@ -84,7 +84,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n7.1.1
+ARG FFMPEG_VER=n8.0
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -103,7 +103,7 @@ RUN bash -euxo pipefail <<EOF
 			--disable-ffplay \
 			--disable-doc \
 			--enable-lto \
-                        --enable-libzimg \
+      --enable-libzimg \
 			--enable-libopus \
 			--enable-libtheora \
 			--enable-libvpx \
@@ -122,7 +122,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
 COPY --link --from=cflags /cflags.sh .
-ARG BESTSOURCE_VER=R12
+ARG BESTSOURCE_VER=R13
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -172,16 +172,19 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=9b7f3baf30e63b40aea82f55fe81009f0f27e636
-ADD --link --keep-git-dir=true https://github.com/abihf/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
+ARG VSMLRT_VER=84eba9575a1bf27eba11a342db719fd68937e896
+ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.1/TensorRT-RTX-1.1.1.26.Linux.x86_64-gnu.cuda-12.9.tar.gz tensorrt.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
 RUN bash -euxo pipefail <<EOF
-	mkdir -p /opt/TensorRT
-	tar xf tensorrt.tar.gz --strip-components=1 -C /opt/TensorRT
+	mkdir -p TensorRT
+	tar xf tensorrt.tar.gz --strip-components=1 -C TensorRT
+	cp -r TensorRT/targets/x86_64-linux-gnu/lib/* /usr/lib/
+	cp -r TensorRT/include/* /usr/include/
+
 	mkdir vs-mlrt/vstrt/build
 	(
 		source cflags.sh
@@ -190,17 +193,16 @@ RUN bash -euxo pipefail <<EOF
 			-D VAPOURSYNTH_INCLUDE_DIRECTORY=/usr/include/vapoursynth \
 			-D CMAKE_CXX_COMPILER="\$CXX" \
 			-D CMAKE_CXX_FLAGS="\$CXXFLAGS" \
-			-D TENSORRT_HOME="/opt/TensorRT"
+			-D TENSORRT_HOME="/usr"
 		make
 	)
 	mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
 	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/
-	mkdir -p /build/vsmlrt/opt
-	mv /opt/TensorRT /build/vsmlrt/opt/
+	mv TensorRT/targets/x86_64-linux-gnu/lib/* /build/vsmlrt/usr/lib/
+	mv TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
 	cp vs-mlrt/vstrt/build/libvstrt_rtx.so /build/vsmlrt/usr/lib/vapoursynth
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
 	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
-	ln -sf /opt/TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
 EOF
 
 # ========================================================= #
