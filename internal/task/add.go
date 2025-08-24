@@ -3,19 +3,16 @@ package task
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/abihf/video-upscaler/internal/conn"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 )
 
-var fileNameCleaner = regexp.MustCompile(`[^a-zA-Z0-9]+`)
-
-func Add(ctx context.Context, inRelative string, outRelative string, priority string, force bool) error {
+func Add(ctx context.Context, inRelative string, outRelative string, priorityStr string, force bool) error {
 	in, err := filepath.Abs(inRelative)
 	if err != nil {
 		return err
@@ -45,26 +42,24 @@ func Add(ctx context.Context, inRelative string, outRelative string, priority st
 	}
 	defer c.Close()
 
-	outBase := filepath.Base(out)
-	id := fileNameCleaner.ReplaceAllString(outBase, "_")
 	policy := enums.WORKFLOW_ID_CONFLICT_POLICY_FAIL
 	if force {
 		policy = enums.WORKFLOW_ID_CONFLICT_POLICY_TERMINATE_EXISTING
 	}
+	priority := 3
+	switch priorityStr {
+	case PriorityLow:
+		priority = 5
+	case PriorityHigh:
+		priority = 1
+	}
 	options := client.StartWorkflowOptions{
-		ID:        id,
+		ID:        genId(out),
 		TaskQueue: "upscaler",
+		Priority:  temporal.Priority{PriorityKey: priority},
 
 		WorkflowIDConflictPolicy: policy,
 	}
 	c.ExecuteWorkflow(ctx, options, "Upscale", in, out)
 	return nil
-}
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
 }

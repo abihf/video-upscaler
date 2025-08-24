@@ -4,9 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"path/filepath"
-
-	"github.com/abihf/video-upscaler/internal/scanner"
+	"github.com/abihf/video-upscaler/internal/task"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +15,7 @@ var scanCmd = &cobra.Command{
 
 	Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		root, err := filepath.Abs(args[0])
-		if err != nil {
-			return err
-		}
-		s := scanner.Scanner{Root: root, Conn: redisConn()}
-		return s.Scan(cmd.Context())
+		return task.Scan(cmd.Context(), args[0])
 	},
 	ValidArgsFunction: cobra.FixedCompletions(nil, cobra.ShellCompDirectiveFilterDirs),
 }

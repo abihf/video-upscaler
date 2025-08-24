@@ -16,15 +16,17 @@ var addFlags struct {
 func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.Flags().BoolVarP(&addFlags.force, "force", "f", false, "Remove old task when queue conflicts")
-	addCmd.Flags().StringVarP(&addFlags.priority, "priority", "p", "default", "Queue priority (default|critical|low)")
-	addCmd.RegisterFlagCompletionFunc("priority", cobra.FixedCompletions([]string{"default", "critical", "low"}, cobra.ShellCompDirectiveDefault))
+	addCmd.Flags().StringVarP(&addFlags.priority, "priority", "p", "default", "Queue priority (default|high|low)")
+	addCmd.RegisterFlagCompletionFunc("priority",
+		cobra.FixedCompletions([]string{task.PriorityDefault, task.PriorityLow, task.PriorityHigh},
+			cobra.ShellCompDirectiveDefault))
 }
 
 // addCmd represents the add command
 var addCmd = &cobra.Command{
-	Use:   "add [-p priority] [-f] input-file.mkv output-file.mkv",
+	Use:   "add [-p priority] [-f] input-file.mkv [output-file.mkv]",
 	Short: "Add file to queue for upscale",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MatchAll(cobra.RangeArgs(1, 2), cobra.OnlyValidArgs),
 
 	DisableFlagsInUseLine: true,
 	ValidArgsFunction:     cobra.FixedCompletions([]string{"mkv"}, cobra.ShellCompDirectiveFilterFileExt),

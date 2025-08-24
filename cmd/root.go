@@ -14,10 +14,6 @@ import (
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
-	// getEnv("REDIS_ADDR", "localhost:6379")
-	rootCmd.PersistentFlags().StringP("redis-addr", "r", "localhost:6379", "redis address host:port")
-	rootCmd.RegisterFlagCompletionFunc("redis-addr", cobra.FixedCompletions(nil, cobra.ShellCompDirectiveNoFileComp))
 	viper.BindPFlags(rootCmd.PersistentFlags())
 }
 
