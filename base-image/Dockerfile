@@ -9,7 +9,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
-	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main' > /etc/apt/sources.list.d/llvm.list
+	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main' > /etc/apt/sources.list.d/llvm.list
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 	echo 'deb https://mkvtoolnix.download/ubuntu/ noble main' > /etc/apt/sources.list.d/mkvtoolnix.list
 	curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg | apt-key add -
@@ -21,19 +21,19 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y build-essential git pkg-config clang-20 clang++-20 lld-20
+	apt-get install -y build-essential git pkg-config clang-21 clang++-21 lld-21
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
-	export CC=clang-20
-	export CXX=clang++-20
+	export CC=clang-21
+	export CXX=clang++-21
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-20"
-	export AR=llvm-ar-20
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-21"
+	export AR=llvm-ar-21
 EOF
 
 # ========================================================= #
@@ -45,7 +45,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 COPY --link --from=cflags /cflags.sh .
 
 ARG VAPOURSYNTH_VER=R72
-ADD --link  https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
+ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
   pip install -U --break-system-packages cython setuptools
@@ -96,7 +96,7 @@ RUN bash -euxo pipefail <<EOF
 		./configure \
 			--cc="\$CC" \
 			--cxx="\$CXX" \
-			--extra-ldflags="-fuse-ld=lld-20" \
+			--extra-ldflags="-fuse-ld=lld-21" \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
@@ -143,7 +143,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-20-dev zlib1g-dev libzstd-dev
+	apt-get install -y meson libzimg-dev llvm-21-dev zlib1g-dev libzstd-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -156,7 +156,7 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd akarin-vapoursynth-plugin-${AKARINVS_VER}
-		export LLVM_CONFIG=llvm-config-20
+		export LLVM_CONFIG=llvm-config-21
 		meson setup --prefix=/usr build -Dstatic-llvm=true
 		meson compile -C build
 		meson install --destdir /build/akarin -C build
