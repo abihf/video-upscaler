@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 
@@ -43,8 +44,9 @@ func Info(ctx context.Context, inFile, tmpDir string) (map[string]string, error)
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 	defer stderr.Close()
+	errBuff := &strings.Builder{}
 	go func() {
-		scanner := bufio.NewScanner(stderr)
+		scanner := bufio.NewScanner(io.TeeReader(stderr, errBuff))
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			activity.RecordHeartbeat(ctx, line)
@@ -53,7 +55,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (map[string]string, error)
 
 	err = vspipe.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run vspipe: %w", err)
+		return nil, fmt.Errorf("failed to run vspipe: %w\n%s", err, errBuff.String())
 	}
 	return result, nil
 }
