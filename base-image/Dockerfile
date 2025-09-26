@@ -1,22 +1,14 @@
-#syntax=docker/dockerfile:1-labs
-
-
 # base image with prepared apt
 # it also re-enable apt cache
-FROM ubuntu:24.04 as base
+FROM ubuntu:24.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean
 ENV DEBIAN_FRONTEND noninteractive
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	sed -i "s|deb [a-z]*://[^ ]* |deb http://linux.domainesia.com/ubuntu/ubuntu-archive/ |g" /etc/apt/sources.list
-	apt-get update && apt-get install -y curl gnupg2
-	mkdir -p /etc/apt/keyrings/
-	curl -L https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.4.1 noble main" > /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.4.1 noble proprietary" >> /etc/apt/sources.list.d/rocm.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.4.1/ubuntu noble main" > /etc/apt/sources.list.d/amdgpu.list
-	echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.4.1/ubuntu noble proprietary" >> /etc/apt/sources.list.d/amdgpu.list
-	echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600
+	apt-get update && apt-get install -y curl gnupg2 rsync
+	curl -fsSL https://repo.radeon.com/amdgpu-install/7.0.1/ubuntu/noble/amdgpu-install_7.0.1.70001-1_all.deb -o /tmp/amdgpu-install.deb
+	dpkg -i /tmp/amdgpu-install.deb
+	rm /tmp/amdgpu-install.deb
 	apt-get update
 	apt-get -y upgrade
 EOF
@@ -28,24 +20,24 @@ WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y build-essential git pkg-config gpg
 COPY <<EOF /etc/apt/sources.list.d/llvm.list
-deb https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main
+deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
 EOF
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
 	apt-get update && \
-	apt-get install -y clang-20 clang++-20 lld-20
+	apt-get install -y clang-21 clang++-21 lld-21
 
 FROM scratch AS cflags
 COPY <<EOF /cflags.sh
 	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
 			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
 			-fstack-clash-protection -fcf-protection -flto)
-	export CC=clang-20
-	export CXX=clang++-20
+	export CC=clang-21
+	export CXX=clang++-21
 	export CFLAGS="\${baseflags[@]}"
 	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-20"
-	export AR=llvm-ar-20
+	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-21"
+	export AR=llvm-ar-21
 EOF
 
 # ========================================================= #
@@ -82,7 +74,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG FFMPEG_VER=n7.1.1
+ARG FFMPEG_VER=n8.0
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -94,7 +86,7 @@ RUN bash -euxo pipefail <<EOF
 		./configure \
 			--cc="\$CC" \
 			--cxx="\$CXX" \
-			--extra-ldflags="-fuse-ld=lld-20" \
+			--extra-ldflags="-fuse-ld=lld-21" \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
@@ -120,7 +112,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
 COPY --link --from=cflags /cflags.sh .
-ARG BESTSOURCE_VER=R12
+ARG BESTSOURCE_VER=R13
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -141,7 +133,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-20-dev zlib1g-dev libzstd-dev
+	apt-get install -y meson libzimg-dev llvm-21-dev zlib1g-dev libzstd-dev
 
 COPY --link --from=cflags /cflags.sh .
 
@@ -154,7 +146,7 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd akarin-vapoursynth-plugin-${AKARINVS_VER}
-		export LLVM_CONFIG=llvm-config-20
+		export LLVM_CONFIG=llvm-config-21
 		meson setup --prefix=/usr build -Dstatic-llvm=true
 		meson compile -C build
 		meson install --destdir /build/akarin -C build
@@ -171,7 +163,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link --from=cflags /cflags.sh .
 
-ARG VSMLRT_VER=467e4fc62f1eddf65ca7a2a3eeca74b3226cd44e
+ARG VSMLRT_VER=bd48cc73430fb7826456415093c5dacd0f39c125
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -222,7 +214,7 @@ RUN sleep 3
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
 	libpython3.12t64 half libnuma1 \
-	libtheora0 libzimg2 libopus0 libvpx9 libva2 libva-drm2 mesa-va-drivers libelf1t64 libdrm-amdgpu-amdgpu1 mesa-amdgpu-libgallium
+	libtheora0 libzimg2 libopus0 libvpx9 libva2 mesa-amdgpu-va-drivers libelf1t64 libva-amdgpu-drm2
 
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
