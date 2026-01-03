@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v5
         with:
           buildkitd-flags: --oci-worker-snapshotter=stargz
 
@@ -57,7 +57,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
 
       - name: Build CLI image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           target: cli
           push: ${{ github.event_name != 'pull_request' }}
@@ -66,7 +66,7 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:cli
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=registry,oci-mediatypes=true,compression=estargz,force-compression=true
           cache-from: type=gha,scope=cli
           cache-to: type=gha,scope=cli,mode=max,ignore-error=true
 
@@ -76,7 +76,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Base image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         if: steps.base_img.outcome == 'failure'
         with:
           context: base-image
@@ -90,12 +90,12 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=registry,oci-mediatypes=true,compression=estargz,force-compression=true
           cache-from: type=gha,scope=base
           cache-to: type=gha,scope=base,ignore-error=true
 
       - name: Build Worker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         id: push
         with:
           target: worker
@@ -103,7 +103,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true,compression=zstd
+          outputs: type=registry,oci-mediatypes=true,compression=estargz,force-compression=true
           cache-from: type=gha,scope=cli
 
       - name: Generate artifact attestation
