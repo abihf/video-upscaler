@@ -107,6 +107,7 @@ jobs:
           cache-from: type=gha,scope=cli
 
       - name: Generate artifact attestation
+        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ghcr.io/${{ env.IMAGE_NAME }}
