@@ -27,12 +27,19 @@ func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) 
 		"-progress", "pipe:3", "-nostats",
 		"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", // force b709
 		"-i", "-",
-		// video encoding options
-		"-pix_fmt", "p010le", "-c:v", "hevc_nvenc", "-profile:v", "main10", "-preset:v", "slow",
-		"-rc:v", "vbr", "-cq:v", "16", "-spatial-aq", "1", "-bf", "3", "-aud", "1", "-b_ref_mode", "middle",
-		"-g", "48", "-keyint_min", "24", "-forced-idr", "1", "-sc_threshold", "0", "-fflags", "+genpts", "-rc-lookahead", "20",
-		"-fps_mode", "cfr", "-r", "24000/1001", "-muxpreload", "0", "-muxdelay", "0", "-avoid_negative_ts", "make_zero", "-start_at_zero",
-
+		// video encoding settings
+		"-c:v", "av1_nvenc",
+		"-pix_fmt", "p010le",
+		"-preset", "p7",
+		"-tune", "hq",
+		"-rc", "constqp", "-qp", "18",
+		"-multipass", "fullres",
+		"-spatial-aq", "1", "-temporal-aq", "1", "-aq-strength", "8",
+		"-rc-lookahead", "32",
+		"-bf", "4", "-b_ref_mode", "middle",
+		"-g", "240", "-keyint_min", "24",
+		"-fflags", "+genpts",
+		"-muxpreload", "0", "-muxdelay", "0", "-avoid_negative_ts", "make_zero", "-start_at_zero",
 		"-y", tmpOut)
 
 	// Create pipe between commands
