@@ -23,26 +23,13 @@ WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y build-essential git pkg-config clang-21 clang++-21 lld-21
 
-FROM scratch AS cflags
-COPY <<EOF /cflags.sh
-	baseflags=(-march=x86-64-v3 -O2 -pipe -fno-plt -fexceptions -ffast-math
-			-Wp,-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security
-			-fstack-clash-protection -fcf-protection -flto)
-	export CC=clang-21
-	export CXX=clang++-21
-	export CFLAGS="\${baseflags[@]}"
-	export CXXFLAGS="\${CFLAGS} -Wp,-D_GLIBCXX_ASSERTIONS"
-	export LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,-flto,-fuse-ld=lld-21"
-	export AR=llvm-ar-21
-EOF
-
 # ========================================================= #
 
 FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev python3-pip
 
-COPY --link --from=cflags /cflags.sh .
+COPY --link cflags.sh .
 
 ARG VAPOURSYNTH_VER=R73
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
@@ -68,7 +55,7 @@ FROM dev AS ffmpeg
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libzimg-dev python3-dev
 
-COPY --link --from=cflags /cflags.sh .
+COPY --link cflags.sh .
 
 ARG NV_CODEC_VER=13.0.19.0
 ADD --link https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NV_CODEC_VER}/nv-codec-headers-${NV_CODEC_VER}.tar.gz .
@@ -121,8 +108,8 @@ FROM dev AS bestsource
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
-COPY --link --from=cflags /cflags.sh .
-ARG BESTSOURCE_VER=R15
+COPY --link cflags.sh .
+ARG BESTSOURCE_VER=R16
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -145,7 +132,7 @@ FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev llvm-21-dev zlib1g-dev libzstd-dev
 
-COPY --link --from=cflags /cflags.sh .
+COPY --link cflags.sh .
 
 ARG AKARINVS_VER=1.0.0
 ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
@@ -168,14 +155,14 @@ EOF
 
 FROM dev AS vsmlrt
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install --no-install-recommends -y cmake cuda-nvcc-13-0
+	apt-get install --no-install-recommends -y cmake cuda-nvcc-13-1
 
-COPY --link --from=cflags /cflags.sh .
+COPY --link cflags.sh .
 
 ARG VSMLRT_VER=84eba9575a1bf27eba11a342db719fd68937e896
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
-ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.2/tensorrt-rtx-1.2.0.54-linux-x86_64-cuda-13.0-release-external.tar.gz tensorrt.tar.gz
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.3/TensorRT-RTX-1.3.0.35-Linux-x86_64-cuda-13.1-Release-external.tar.gz tensorrt.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
