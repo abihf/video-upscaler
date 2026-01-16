@@ -32,7 +32,7 @@ func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) 
 		"-pix_fmt", "p010le",
 		"-preset", "p7",
 		"-tune", "hq",
-		"-rc", "constqp", "-qp", "24",
+		"-rc", "vbr", "-cq", "24", "-b:v", "20M", "-maxrate:v", "40M", "-bufsize:v", "80M",
 		"-multipass", "fullres",
 		"-spatial-aq", "1", "-temporal-aq", "1", "-aq-strength", "8",
 		"-rc-lookahead", "32",
