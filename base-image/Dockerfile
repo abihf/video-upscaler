@@ -6,11 +6,6 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl gpg
-	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-	dpkg -i cuda-keyring_1.1-1_all.deb
-	rm cuda-keyring_1.1-1_all.deb
-	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main' > /etc/apt/sources.list.d/llvm.list
-	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 	echo 'deb https://mkvtoolnix.download/ubuntu/ noble main' > /etc/apt/sources.list.d/mkvtoolnix.list
 	curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg | apt-key add -
 	apt-get update
@@ -20,8 +15,12 @@ EOF
 # ========================================================= #
 FROM base AS dev
 WORKDIR /workspace
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
+	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main' > /etc/apt/sources.list.d/llvm.list
+	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+	apt-get update
 	apt-get install -y build-essential git pkg-config clang-21 clang++-21 lld-21
+EOF
 
 # ========================================================= #
 
@@ -154,8 +153,14 @@ EOF
 # ========================================================= #
 
 FROM dev AS vsmlrt
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install --no-install-recommends -y cmake cuda-nvcc-13-1
+ARG CUDA_VER=13-1
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
+	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+	dpkg -i cuda-keyring_1.1-1_all.deb
+	rm cuda-keyring_1.1-1_all.deb
+	apt-get update
+	apt-get install --no-install-recommends -y cmake cuda-nvcc-${CUDA_VER}
+EOF
 
 COPY --link cflags.sh .
 
