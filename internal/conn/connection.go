@@ -19,8 +19,9 @@ func DialContext(ctx context.Context) (client.Client, error) {
 	var c client.Client
 	var err error
 	maxRetries := 5
+	backoff := time.Second
 
-	for i := range maxRetries {
+	for i := range maxRetries - 1 {
 		c, err = client.DialContext(ctx, client.Options{
 			HostPort:  hostPort,
 			Namespace: "upscaler",
@@ -35,11 +36,9 @@ func DialContext(ctx context.Context) (client.Client, error) {
 			return c, nil
 		}
 
-		if i < maxRetries-1 {
-			backoff := time.Duration(1<<uint(i)) * time.Second
-			slog.Warn("failed to connect to temporal, retrying", "attempt", i+1, "backoff", backoff, "error", err)
-			time.Sleep(backoff)
-		}
+		slog.Warn("failed to connect to temporal, retrying", "attempt", i+1, "backoff", backoff, "error", err)
+		time.Sleep(backoff)
+		backoff <<= 1
 	}
 
 	return nil, err
