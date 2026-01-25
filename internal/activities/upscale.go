@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/abihf/video-upscaler/internal/utils/await"
@@ -13,7 +14,7 @@ import (
 	"go.temporal.io/sdk/activity"
 )
 
-func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) {
+func Upscale(ctx context.Context, inFile string, tmpDir string, fileInfo FileInfo) (string, error) {
 	cacheFile := getCacheFile(tmpDir)
 	tmpOut := filepath.Join(tmpDir, "upscaled.mkv")
 
@@ -21,6 +22,14 @@ func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) 
 	vspipe := exec.CommandContext(ctx, "vspipe", "-c", "y4m",
 		"-a", fmt.Sprintf("in=%s", inFile), "-a", fmt.Sprintf("cache=%s", cacheFile),
 		"/upscale/script.py", "-")
+
+	fps := "24000/1001"
+	if val, ok := fileInfo["FPS"]; ok {
+		val = strings.Split(val, " ")[0]
+		if val != "" {
+			fps = val
+		}
+	}
 
 	// Create ffmpeg command
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-loglevel", "info", "-noautorotate",
@@ -30,6 +39,7 @@ func Upscale(ctx context.Context, inFile string, tmpDir string) (string, error) 
 		// video encoding settings
 		"-c:v", "av1_nvenc",
 		"-pix_fmt", "p010le",
+		"-r", fps,
 		"-preset", "p7",
 		"-tune", "hq",
 		"-rc", "vbr", "-cq", "18", "-b:v", "20M", "-maxrate:v", "40M", "-bufsize:v", "80M",

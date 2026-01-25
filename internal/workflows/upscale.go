@@ -29,13 +29,14 @@ func Upscale(ctx workflow.Context, inFile string, outFile string) error {
 		return err
 	}
 
-	err = workflow.ExecuteActivity(ctx, activities.Info, inFile, tmpDir).Get(ctx, nil)
+	var info activities.FileInfo
+	err = workflow.ExecuteActivity(ctx, activities.Info, inFile, tmpDir).Get(ctx, &info)
 	if err != nil {
 		return err
 	}
 
 	var upscaledFile string
-	err = workflow.ExecuteActivity(ctx, activities.Upscale, inFile, tmpDir).Get(ctx, &upscaledFile)
+	err = workflow.ExecuteActivity(ctx, activities.Upscale, inFile, tmpDir, info).Get(ctx, &upscaledFile)
 	if err != nil {
 		return err
 	}

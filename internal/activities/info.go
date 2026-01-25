@@ -11,7 +11,28 @@ import (
 	"go.temporal.io/sdk/activity"
 )
 
-func Info(ctx context.Context, inFile, tmpDir string) (map[string]string, error) {
+/*
+FileInfo is map describing the file. example:
+
+	{
+	  "Alpha": "No",
+	  "Bits": "10",
+	  "Color Family": "YUV",
+	  "FPS": "24000/1001 (23.976 fps)",
+	  "Format Name": "YUV420P10",
+	  "Frames": "35965",
+	  "Height": "2160",
+	  "Output Index": "0",
+	  "Sample Type": "Integer",
+	  "SubSampling H": "1",
+	  "SubSampling W": "1",
+	  "Type": "Video",
+	  "Width": "3840"
+	}
+*/
+type FileInfo map[string]string
+
+func Info(ctx context.Context, inFile, tmpDir string) (FileInfo, error) {
 	cacheFile := getCacheFile(tmpDir)
 
 	// Create vspipe command
@@ -25,7 +46,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (map[string]string, error)
 	}
 	defer stdout.Close()
 
-	result := make(map[string]string)
+	result := make(FileInfo, 14)
 	go func() {
 		br := bufio.NewScanner(stdout)
 		for br.Scan() {
