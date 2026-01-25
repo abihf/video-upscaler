@@ -64,7 +64,7 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:cli
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=registry,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
           cache-from: type=gha,scope=cli
           cache-to: type=gha,scope=cli,mode=max,ignore-error=true
 
@@ -88,7 +88,7 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:base-${{ hashFiles('base-image/**') }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=registry,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
           cache-from: type=gha,scope=base
           cache-to: type=gha,scope=base,ignore-error=true
 
@@ -101,7 +101,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=registry,oci-mediatypes=true,compression=zstd,force-compression=true
+          outputs: type=image,oci-mediatypes=true,compression=zstd,force-compression=true
           cache-from: type=gha,scope=cli
 
       - name: Generate artifact attestation
