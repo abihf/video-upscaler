@@ -133,7 +133,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link cflags.sh .
 
-ARG AKARINVS_VER=1.0.0
+ARG AKARINVS_VER=1.1.0
 ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -164,7 +164,7 @@ EOF
 
 COPY --link cflags.sh .
 
-ARG VSMLRT_VER=84eba9575a1bf27eba11a342db719fd68937e896
+ARG VSMLRT_VER=38b163456ca3e1cffb85cee7cfe64348986758c6
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.3/TensorRT-RTX-1.3.0.35-Linux-x86_64-cuda-13.1-Release-external.tar.gz tensorrt.tar.gz
