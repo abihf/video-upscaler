@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/abihf/video-upscaler/internal/activities"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -19,7 +20,12 @@ func Upscale4K(ctx workflow.Context, inFile string) error {
 
 func Upscale(ctx workflow.Context, inFile string, outFile string) error {
 	ao := workflow.ActivityOptions{
-		StartToCloseTimeout: 2 * time.Hour,
+		StartToCloseTimeout: 6 * time.Hour,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    10 * time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumAttempts:    2,
+		},
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
