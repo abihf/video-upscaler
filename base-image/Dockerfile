@@ -16,10 +16,10 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main' > /etc/apt/sources.list.d/llvm.list
+	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' > /etc/apt/sources.list.d/llvm.list
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 	apt-get update
-	apt-get install -y build-essential git pkg-config clang-21 clang++-21 lld-21
+	apt-get install -y build-essential git pkg-config clang-22 clang++-22 lld-22
 EOF
 
 # ========================================================= #
@@ -82,7 +82,7 @@ RUN bash -euxo pipefail <<EOF
 		./configure \
 			--cc="\$CC" \
 			--cxx="\$CXX" \
-			--extra-ldflags="-fuse-ld=lld-21" \
+			--extra-ldflags="-fuse-ld=lld-22" \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
@@ -129,7 +129,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-21-dev zlib1g-dev libzstd-dev
+	apt-get install -y meson libzimg-dev llvm-22-dev zlib1g-dev libzstd-dev
 
 COPY --link cflags.sh .
 
@@ -142,7 +142,7 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd akarin-vapoursynth-plugin-${AKARINVS_VER}
-		export LLVM_CONFIG=llvm-config-21
+		export LLVM_CONFIG=llvm-config-22
 		meson setup --prefix=/usr build -Dstatic-llvm=true
 		meson compile -C build
 		meson install --destdir /build/akarin -C build
