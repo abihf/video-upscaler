@@ -55,7 +55,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
 
       - name: Build CLI image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           target: cli
           push: ${{ github.event_name != 'pull_request' }}
@@ -74,7 +74,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Base image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         if: steps.base_img.outcome == 'failure'
         with:
           context: base-image
@@ -93,7 +93,7 @@ jobs:
           cache-to: type=gha,scope=base,ignore-error=true
 
       - name: Build Worker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         id: push
         with:
           target: worker
