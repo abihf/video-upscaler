@@ -58,6 +58,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (FileInfo, error) {
 				result[key] = value
 			}
 		}
+		_ = br.Err()
 	}()
 
 	stderr, err := vspipe.StderrPipe()
@@ -72,6 +73,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (FileInfo, error) {
 			line := strings.TrimSpace(scanner.Text())
 			activity.RecordHeartbeat(ctx, line)
 		}
+		_ = scanner.Err()
 	}()
 
 	err = vspipe.Run()
