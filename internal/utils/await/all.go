@@ -1,19 +1,20 @@
 package await
 
+import (
+	"golang.org/x/sync/errgroup"
+)
+
+// All executes fn concurrently for each arg, returning the first non-nil error encountered.
+// It waits for all goroutines to complete before returning.
 func All[Arg any](fn func(Arg) error, args ...Arg) error {
-	errChan := make(chan error, len(args))
+	var eg errgroup.Group
 
 	for _, arg := range args {
-		go func(arg Arg) {
-			errChan <- fn(arg)
-		}(arg)
+		arg := arg // capture loop variable
+		eg.Go(func() error {
+			return fn(arg)
+		})
 	}
 
-	for range args {
-		err := <-errChan
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return eg.Wait()
 }
