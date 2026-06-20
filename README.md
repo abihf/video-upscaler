@@ -93,17 +93,17 @@ The `base-image` build assembles the runtime dependencies used by the `worker` i
 
 Main software components:
 
-- **OS/base tooling**: Ubuntu 24.04, build-essential, clang/lld 22 toolchain
+- **OS/base tooling**: Ubuntu 26.04, build-essential, clang/lld 22 toolchain
 - **VapourSynth stack**:
-  - VapourSynth `R73`
-  - BestSource plugin `R16` (source filter)
-  - (Akarin plugin build stage exists but is currently not copied into runtime)
+  - VapourSynth `R77`
+  - BestSource plugin `R18` (source filter)
+  - Akarin plugin `1.4.1` build stage exists but is currently not copied into runtime
 - **ML inference stack**:
-  - `vs-mlrt` (pinned git commit)
-  - CUDA NVCC `13.1`
-  - TensorRT RTX `1.3.0.35`
+  - `vs-mlrt` pinned to commit `84eba9575a1bf27eba11a342db719fd68937e896`
+  - CUDA NVCC `13.3`
+  - TensorRT RTX `1.5.0.114`
 - **Video/mux tooling**:
-  - FFmpeg `n8.0.1` built with NVENC/NVDEC and zimg/theora/opus/vpx support
+  - FFmpeg `n8.1.2` built with NVENC/NVDEC and zimg/theora/opus/vpx support
   - `mkvtoolnix` for MKV muxing
 
-Runtime shared libraries installed include Python 3.12 runtime and codec/misc libs used by FFmpeg/VapourSynth (`libtheora`, `libzimg`, `libopus`, `libvpx`, `libxxhash`).
+Runtime shared libraries installed include Python 3.14 runtime and codec/misc libs used by FFmpeg/VapourSynth (`libtheora`, `libzimg`, `libopus`, `libvpx`, `libxxhash`).

@@ -51,7 +51,7 @@ go build ./...
 
 `/base-image/Dockerfile` builds runtime dependencies including:
 
-- Ubuntu 24.04 base + clang/lld 22 toolchain
-- VapourSynth R73 + BestSource R16
-- FFmpeg n8.0.1 (NVENC/NVDEC enabled) + mkvtoolnix
-- vs-mlrt + CUDA 13.1 + TensorRT RTX 1.3.0.35
+- Ubuntu 26.04 base + clang/lld 22 toolchain
+- VapourSynth R77 + BestSource R18
+- FFmpeg n8.1.2 (NVENC/NVDEC enabled) + mkvtoolnix
+- vs-mlrt + CUDA 13.3 + TensorRT RTX 1.5.0.114

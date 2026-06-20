@@ -1,13 +1,13 @@
 # base image with prepared apt
 # it also re-enable apt cache
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 ARG ENABLE_APT_CACHE=1
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	test "${ENABLE_APT_CACHE}" = "1" && rm /etc/apt/apt.conf.d/docker-clean || true
 	apt-get update
 	apt-get install -y curl gpg
-	echo 'deb https://mkvtoolnix.download/ubuntu/ noble main' > /etc/apt/sources.list.d/mkvtoolnix.list
-	curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg | apt-key add -
+	curl -fsSL https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg | gpg --dearmor -o /usr/share/keyrings/mkvtoolnix.gpg
+	echo 'deb [signed-by=/usr/share/keyrings/mkvtoolnix.gpg] https://mkvtoolnix.download/ubuntu/ resolute main' > /etc/apt/sources.list.d/mkvtoolnix.list
 	apt-get update
 	apt-get upgrade -y
 EOF
@@ -16,8 +16,8 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	echo 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' > /etc/apt/sources.list.d/llvm.list
-	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+	echo 'deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/resolute/ llvm-toolchain-resolute-22 main' > /etc/apt/sources.list.d/llvm.list
 	apt-get update
 	apt-get install -y build-essential git pkg-config clang-22 clang++-22 lld-22
 EOF
@@ -154,9 +154,9 @@ EOF
 # ========================================================= #
 
 FROM dev AS vsmlrt
-ARG CUDA_VER=13-2
+ARG CUDA_VER=13-3
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
-	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
 	apt-get update
@@ -206,7 +206,7 @@ EOF
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.12t64 libtheora0 libzimg2 libopus0 libvpx9 libxxhash0 \
+	libpython3.14 libtheora1 libzimg2 libopus0 libvpx12 libxxhash0 \
 	mkvtoolnix
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
