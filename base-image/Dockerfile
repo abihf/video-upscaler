@@ -26,11 +26,10 @@ EOF
 
 FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y python3-dev autoconf automake libtool libzimg-dev libglib2.0-dev python3-pip
+	apt-get install -y python3-dev meson libzimg-dev libglib2.0-dev python3-pip
 
 COPY --link cflags.sh .
-
-ARG VAPOURSYNTH_VER=R73
+ARG VAPOURSYNTH_VER=R77
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -39,11 +38,13 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd vapoursynth-${VAPOURSYNTH_VER}
-		./autogen.sh
-		./configure --prefix=/usr
-		make -s -j8 
-		make DESTDIR=/build/vapoursynth install 
-		mv /build/vapoursynth/usr/lib/python3.12/site-packages/vapoursynth.so /build/vapoursynth/usr/lib/python3.12 
+		meson setup --prefix=/usr build
+		meson compile -C build
+		meson install --destdir /build/vapoursynth -C build
+		mkdir -p /build/vapoursynth/usr/include/
+		cp include/*.h /build/vapoursynth/usr/include/
+		mkdir -p /build/vapoursynth/usr/lib/pkgconfig/
+ 		mv /build/vapoursynth/usr/lib/python3/dist-packages/vapoursynth/pkgconfig/* /build/vapoursynth/usr/lib/pkgconfig/
 	)
 	rm -rf vapoursynth-${VAPOURSYNTH_VER}
 EOF
@@ -70,7 +71,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n8.1
+ARG FFMPEG_VER=n8.1.2
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -108,7 +109,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
 COPY --link cflags.sh .
-ARG BESTSOURCE_VER=R16
+ARG BESTSOURCE_VER=R18
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -133,7 +134,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 
 COPY --link cflags.sh .
 
-ARG AKARINVS_VER=1.0.0
+ARG AKARINVS_VER=1.4.1
 ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -153,7 +154,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS vsmlrt
-ARG CUDA_VER=13-1
+ARG CUDA_VER=13-2
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
@@ -167,14 +168,17 @@ COPY --link cflags.sh .
 ARG VSMLRT_VER=84eba9575a1bf27eba11a342db719fd68937e896
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
-ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.3/TensorRT-RTX-1.3.0.35-Linux-x86_64-cuda-13.1-Release-external.tar.gz tensorrt.tar.gz
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.5/TensorRT-RTX-1.5.0.114-Linux-x86_64-cuda-13.2-Release-external.tar.zst tensorrt.tar.zst
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
+RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
+	apt-get install -y zstd
+
 RUN bash -euxo pipefail <<EOF
 	mkdir -p TensorRT
-	tar xf tensorrt.tar.gz --strip-components=1 -C TensorRT
-	cp -r TensorRT/targets/x86_64-linux-gnu/lib/* /usr/lib/
+	tar xf tensorrt.tar.zst --strip-components=1 -C TensorRT
+	cp -r TensorRT/lib/* /usr/lib/
 	cp -r TensorRT/include/* /usr/include/
 
 	mkdir vs-mlrt/vstrt/build
@@ -190,7 +194,7 @@ RUN bash -euxo pipefail <<EOF
 	)
 	mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
 	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/
-	mv TensorRT/targets/x86_64-linux-gnu/lib/* /build/vsmlrt/usr/lib/
+	mv TensorRT/lib/* /build/vsmlrt/usr/lib/
 	mv TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
 	cp vs-mlrt/vstrt/build/libvstrt_rtx.so /build/vsmlrt/usr/lib/vapoursynth
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
