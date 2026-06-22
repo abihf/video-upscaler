@@ -45,6 +45,8 @@ RUN bash -euxo pipefail <<EOF
 		cp include/*.h /build/vapoursynth/usr/include/
 		mkdir -p /build/vapoursynth/usr/lib/pkgconfig/
  		mv /build/vapoursynth/usr/lib/python3/dist-packages/vapoursynth/pkgconfig/* /build/vapoursynth/usr/lib/pkgconfig/
+		mkdir -p /build/vapoursynth/usr/bin
+		ln -sf /usr/lib/python3/dist-packages/vapoursynth/vspipe /build/vapoursynth/usr/bin/vspipe
 	)
 	rm -rf vapoursynth-${VAPOURSYNTH_VER}
 EOF
@@ -192,26 +194,32 @@ RUN bash -euxo pipefail <<EOF
 			-D TENSORRT_HOME="/usr"
 		make
 	)
-	mkdir -p /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda
-	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/
+	mkdir -p /build/vsmlrt/usr/lib/python3/dist-packages/vapoursynth/plugins/vsmlrt-cuda
+	cp vs-mlrt/vstrt/build/libvstrt_rtx.so /build/vsmlrt/usr/lib/python3/dist-packages/vapoursynth/plugins
 	mv TensorRT/lib/* /build/vsmlrt/usr/lib/
-	mv TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/vapoursynth/vsmlrt-cuda/
-	cp vs-mlrt/vstrt/build/libvstrt_rtx.so /build/vsmlrt/usr/lib/vapoursynth
+	mv TensorRT/bin/tensorrt_rtx /build/vsmlrt/usr/lib/python3/dist-packages/vapoursynth/plugins/vsmlrt-cuda/
+	rm -rf TensorRT
 	cp vs-mlrt/scripts/vsmlrt.py /build/vsmlrt/usr/lib/python3/dist-packages/
-	ln -sf /models /build/vsmlrt/usr/lib/vapoursynth/models
+	ln -sf /models /build/vsmlrt/usr/lib/python3/dist-packages/vapoursynth/plugins/models
 EOF
+
 
 # ========================================================= #
 
 FROM base AS runtime
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y --no-install-recommends \
-	libpython3.14 libtheora1 libzimg2 libopus0 libvpx12 libxxhash0 \
+	python3.14 libpython3.14 libtheoradec2 libtheoraenc2 libzimg2 libopus0 libvpx12 libxxhash0 \
 	mkvtoolnix
 COPY --link --from=ffmpeg /build/ffmpeg/ /
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link --from=bestsource /build/bestsource/ /
 # COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
+
+COPY <<EOF /home/ubuntu/.config/vapoursynth/vapoursynth.toml
+"/usr/lib/python3/dist-packages/vapoursynth/libvsscript.so" = ["/usr/bin/python3.14","/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0"]
+EOF
+
 VOLUME [ "/models" ]
 ENV NVIDIA_DRIVER_CAPABILITIES=all
