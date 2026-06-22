@@ -167,10 +167,10 @@ EOF
 
 COPY --link cflags.sh .
 
-ARG VSMLRT_VER=84eba9575a1bf27eba11a342db719fd68937e896
-ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
-
 ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.5/TensorRT-RTX-1.5.0.114-Linux-x86_64-cuda-13.2-Release-external.tar.zst tensorrt.tar.zst
+
+ARG VSMLRT_VER=1a14847b0652271d266efbfb691de15fb04bf988
+ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 
