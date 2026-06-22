@@ -58,19 +58,22 @@ func Upscale(ctx context.Context, inFile string, tmpDir string, fileInfo FileInf
 		return "", fmt.Errorf("failed to create pipe: %w", err)
 	}
 	ffmpeg.Stdin = pipe
-	defer pipe.Close()
+	defer pipe.Close() //nolint:errcheck
 
 	ffLog, err := os.OpenFile(filepath.Join(tmpDir, "ffmpeg.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to create ffmpeg log file: %w", err)
 	}
-	defer ffLog.Close()
+	defer ffLog.Close() //nolint:errcheck
 	ffmpeg.Stdout = ffLog
 	ffmpeg.Stderr = ffLog
-	fmt.Fprintf(ffLog, "Running command: %s\n", ffmpeg.String())
-	defer fmt.Fprintf(ffLog, "\n-----------------------------\n")
+	if _, err := fmt.Fprintf(ffLog, "Running command: %s\n", ffmpeg.String()); err != nil {
+		return "", fmt.Errorf("failed to write ffmpeg log header: %w", err)
+	}
+	defer fmt.Fprintf(ffLog, "\n-----------------------------\n") //nolint:errcheck
 
 	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 	progress := ffprog.Start()
 	ffmpeg.ExtraFiles = append(ffmpeg.ExtraFiles, progress.Writer)
 	defer progress.Close()
@@ -90,10 +93,10 @@ func Upscale(ctx context.Context, inFile string, tmpDir string, fileInfo FileInf
 
 			case <-activity.GetWorkerStopChannel(ctx):
 				if vspipe.Process != nil && vspipe.ProcessState == nil {
-					vspipe.Process.Kill()
+					_ = vspipe.Process.Kill()
 				}
 				if ffmpeg.Process != nil && ffmpeg.ProcessState == nil {
-					ffmpeg.Process.Kill()
+					_ = ffmpeg.Process.Kill()
 				}
 			}
 		}

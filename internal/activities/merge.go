@@ -28,8 +28,8 @@ func Merge(ctx context.Context, orig, video, tmpDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer logFile.Close()
-	defer fmt.Fprint(logFile, "\n------------------------------\n\n")
+	defer logFile.Close()                                             //nolint:errcheck
+	defer fmt.Fprint(logFile, "\n------------------------------\n\n") //nolint:errcheck
 	mkvmerge.Stdout = logFile
 	mkvmerge.Stderr = logFile
 	if err := mkvmerge.Run(); err != nil {

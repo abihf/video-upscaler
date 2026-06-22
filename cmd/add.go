@@ -17,9 +17,11 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.Flags().BoolVarP(&addFlags.force, "force", "f", false, "Remove old task when queue conflicts")
 	addCmd.Flags().StringVarP(&addFlags.priority, "priority", "p", "default", "Queue priority (default|high|low)")
-	addCmd.RegisterFlagCompletionFunc("priority",
+	if err := addCmd.RegisterFlagCompletionFunc("priority",
 		cobra.FixedCompletions([]string{task.PriorityDefault, task.PriorityLow, task.PriorityHigh},
-			cobra.ShellCompDirectiveDefault))
+			cobra.ShellCompDirectiveDefault)); err != nil {
+		panic(err)
+	}
 }
 
 // addCmd represents the add command

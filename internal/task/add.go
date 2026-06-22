@@ -60,6 +60,6 @@ func Add(ctx context.Context, inRelative string, outRelative string, priorityStr
 
 		WorkflowIDConflictPolicy: policy,
 	}
-	c.ExecuteWorkflow(ctx, options, "Upscale", in, out)
-	return nil
+	_, err = c.ExecuteWorkflow(ctx, options, "Upscale", in, out)
+	return err
 }

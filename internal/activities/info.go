@@ -44,7 +44,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (FileInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-	defer stdout.Close()
+	defer stdout.Close() //nolint:errcheck
 
 	result := make(FileInfo, 14)
 	go func() {
@@ -65,7 +65,7 @@ func Info(ctx context.Context, inFile, tmpDir string) (FileInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
-	defer stderr.Close()
+	defer stderr.Close() //nolint:errcheck
 	errBuff := &strings.Builder{}
 	go func() {
 		scanner := bufio.NewScanner(io.TeeReader(stderr, errBuff))

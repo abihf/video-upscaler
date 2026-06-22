@@ -25,8 +25,8 @@ func (p *Progress) String() string {
 }
 
 func (p *Progress) Close() {
-	p.r.Close()
-	p.Writer.Close()
+	_ = p.r.Close()
+	_ = p.Writer.Close()
 }
 
 func Start() *Progress {

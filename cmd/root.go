@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 
@@ -14,7 +15,9 @@ import (
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	viper.BindPFlags(rootCmd.PersistentFlags())
+	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		panic(err)
+	}
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -39,5 +42,10 @@ func initConfig() {
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
-	viper.ReadInConfig()
+	if err := viper.ReadInConfig(); err != nil {
+		var configNotFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &configNotFound) {
+			panic(err)
+		}
+	}
 }
