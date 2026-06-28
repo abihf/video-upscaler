@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	go.temporal.io/api v1.62.14
+	go.temporal.io/api v1.63.0
 	go.temporal.io/sdk v1.45.0
 	golang.org/x/sync v0.21.0
 	google.golang.org/grpc v1.81.1
