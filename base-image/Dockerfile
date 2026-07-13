@@ -16,14 +16,15 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 
+ENV LLVM_VERSION=22
 COPY --link cflags.sh .
 
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
   source cflags.sh
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
-	echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/resolute/ llvm-toolchain-resolute-\${llvm_version} main" > /etc/apt/sources.list.d/llvm.list
+	echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/resolute/ llvm-toolchain-resolute-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list
 	apt-get update
-	apt-get install -y build-essential git pkg-config clang-\${llvm_version} clang++-\${llvm_version} lld-\${llvm_version} cmake ninja-build meson
+	apt-get install -y build-essential git pkg-config clang-${LLVM_VERSION} clang++-${LLVM_VERSION} lld-${LLVM_VERSION} cmake ninja-build meson
 EOF
 
 # ========================================================= #
@@ -87,7 +88,7 @@ RUN bash -euxo pipefail <<EOF
 		./configure \
 			--cc="\$CC" \
 			--cxx="\$CXX" \
-			--extra-ldflags="-fuse-ld=lld-\${llvm_version}" \
+			--extra-ldflags="-fuse-ld=lld-${LLVM_VERSION}" \
 			--prefix=/usr \
 			--disable-debug \
 			--disable-static \
@@ -133,7 +134,7 @@ EOF
 
 FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y meson libzimg-dev llvm-\${llvm_version}-dev zlib1g-dev libzstd-dev
+	apt-get install -y meson libzimg-dev llvm-${LLVM_VERSION}-dev zlib1g-dev libzstd-dev
 
 ARG AKARINVS_VER=1.4.1
 ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
@@ -144,7 +145,7 @@ RUN bash -euxo pipefail <<EOF
 	(
 		source cflags.sh
 		cd akarin-vapoursynth-plugin-${AKARINVS_VER}
-		export LLVM_CONFIG=llvm-config-\${llvm_version}
+		export LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 		meson setup --prefix=/usr build -Dstatic-llvm=true
 		meson compile -C build
 		meson install --destdir /build/akarin -C build
