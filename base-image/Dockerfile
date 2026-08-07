@@ -33,7 +33,7 @@ FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev libzimg-dev libglib2.0-dev python3-pip
 
-ARG VAPOURSYNTH_VER=R77
+ARG VAPOURSYNTH_VER=R79
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -62,7 +62,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y nasm libtheora-dev libopus-dev libvpx-dev libzimg-dev python3-dev
 
 
-ARG NV_CODEC_VER=13.0.19.0
+ARG NV_CODEC_VER=13.1.15.0
 ADD --link https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NV_CODEC_VER}/nv-codec-headers-${NV_CODEC_VER}.tar.gz .
 
 RUN bash <<EOF
@@ -76,7 +76,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n8.1.2
+ARG FFMPEG_VER=n9.0
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -113,7 +113,7 @@ FROM dev AS bestsource
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
-ARG BESTSOURCE_VER=R18
+ARG BESTSOURCE_VER=R20
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -167,7 +167,7 @@ EOF
 
 ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.5/TensorRT-RTX-1.5.0.114-Linux-x86_64-cuda-13.2-Release-external.tar.zst tensorrt.tar.zst
 
-ARG VSMLRT_VER=3addbbd2c653b1bd1c1ec4457015679910d25cdd
+ARG VSMLRT_VER=8cd6cf266a430fdb9f6d797a4e33ab2952d52ce2
 ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /

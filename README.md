@@ -95,15 +95,15 @@ Main software components:
 
 - **OS/base tooling**: Ubuntu 26.04, build-essential, clang/lld 22 toolchain
 - **VapourSynth stack**:
-  - VapourSynth `R77`
-  - BestSource plugin `R18` (source filter)
+  - VapourSynth `R79`
+  - BestSource plugin `R20` (source filter)
   - Akarin plugin `1.4.1` build stage exists but is currently not copied into runtime
 - **ML inference stack**:
-  - `vs-mlrt` pinned to commit `84eba9575a1bf27eba11a342db719fd68937e896`
+  - `vs-mlrt` pinned to commit `8cd6cf266a430fdb9f6d797a4e33ab2952d52ce2`
   - CUDA NVCC `13.3`
   - TensorRT RTX `1.5.0.114`
 - **Video/mux tooling**:
-  - FFmpeg `n8.1.2` built with NVENC/NVDEC and zimg/theora/opus/vpx support
+  - FFmpeg `n9.0` built with NVENC/NVDEC and zimg/theora/opus/vpx support
   - `mkvtoolnix` for MKV muxing
 
 Runtime shared libraries installed include Python 3.14 runtime and codec/misc libs used by FFmpeg/VapourSynth (`libtheora`, `libzimg`, `libopus`, `libvpx`, `libxxhash`).
