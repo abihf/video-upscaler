@@ -215,9 +215,8 @@ COPY --link --from=bestsource /build/bestsource/ /
 # COPY --link --from=akarin /build/akarin/ /
 COPY --link --from=vsmlrt /build/vsmlrt/ /
 
-COPY <<EOF /home/ubuntu/.config/vapoursynth/vapoursynth.toml
-"/usr/lib/python3/dist-packages/vapoursynth/libvsscript.so" = ["/usr/bin/python3.14","/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0"]
-EOF
+USER 1000:1000
+RUN python3.14 -m vapoursynth config
 
 VOLUME [ "/models" ]
 ENV NVIDIA_DRIVER_CAPABILITIES=all
