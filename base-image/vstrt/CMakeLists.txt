@@ -25,9 +25,7 @@ FIND_PACKAGE(CUDAToolkit REQUIRED)
 
 if (USE_TRT_RTX)
     add_library(vstrt_rtx SHARED
-        $<$<PLATFORM_ID:Windows>: longpath.manifest>
         vs_tensorrt.cpp
-        win32.cpp
     )
 
     target_include_directories(vstrt_rtx PRIVATE
@@ -70,9 +68,7 @@ if (USE_TRT_RTX)
     )
 else()
     add_library(vstrt SHARED
-        $<$<PLATFORM_ID:Windows>: longpath.manifest>
         vs_tensorrt.cpp
-        win32.cpp
     )
 
     target_include_directories(vstrt PRIVATE
