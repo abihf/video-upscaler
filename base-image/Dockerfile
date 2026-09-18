@@ -16,7 +16,7 @@ EOF
 FROM base AS dev
 WORKDIR /workspace
 
-ENV LLVM_VERSION=22
+ENV LLVM_VERSION=23
 COPY --link cflags.sh .
 
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
@@ -24,7 +24,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
 	echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/resolute/ llvm-toolchain-resolute-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list
 	apt-get update
-	apt-get install -y build-essential git pkg-config clang-${LLVM_VERSION} clang++-${LLVM_VERSION} lld-${LLVM_VERSION} cmake ninja-build meson
+	apt-get install -y build-essential git pkg-config llvm-${LLVM_VERSION} clang-${LLVM_VERSION} clang++-${LLVM_VERSION} lld-${LLVM_VERSION} cmake ninja-build meson
 EOF
 
 # ========================================================= #
@@ -33,7 +33,7 @@ FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev libzimg-dev libglib2.0-dev python3-pip
 
-ARG VAPOURSYNTH_VER=R79
+ARG VAPOURSYNTH_VER=R80
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -76,7 +76,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n9.0
+ARG FFMPEG_VER=n9.0.1
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -113,7 +113,7 @@ FROM dev AS bestsource
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
-ARG BESTSOURCE_VER=R20
+ARG BESTSOURCE_VER=R22
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -136,7 +136,7 @@ FROM dev AS akarin
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev llvm-${LLVM_VERSION}-dev zlib1g-dev libzstd-dev
 
-ARG AKARINVS_VER=1.4.1
+ARG AKARINVS_VER=1.5.0
 ADD --link https://github.com/Jaded-Encoding-Thaumaturgy/akarin-vapoursynth-plugin/archive/v${AKARINVS_VER}.tar.gz vapoursynth-plugin-v${AKARINVS_VER}.tar.gz
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -156,25 +156,20 @@ EOF
 # ========================================================= #
 
 FROM dev AS vsmlrt
-ARG CUDA_VER=13-3
+ARG CUDA_VER=13-4
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
 	rm cuda-keyring_1.1-1_all.deb
 	apt-get update
-	apt-get install --no-install-recommends -y cmake cuda-nvcc-${CUDA_VER}
+	apt-get install --no-install-recommends -y cmake cuda-nvcc-${CUDA_VER} zstd
 EOF
 
-ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.5/TensorRT-RTX-1.5.0.114-Linux-x86_64-cuda-13.2-Release-external.tar.zst tensorrt.tar.zst
-
-ARG VSMLRT_VER=8cd6cf266a430fdb9f6d797a4e33ab2952d52ce2
-ADD --link --keep-git-dir=true https://github.com/AmusementClub/vs-mlrt.git#${VSMLRT_VER} vs-mlrt
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.6/TensorRT-RTX-1.6.1.120-Linux-x86_64-cuda-13.4-Release-external.tar.zst tensorrt.tar.zst
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
-
-RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
-	apt-get install -y zstd
-
+COPY --link vstrt vs-mlrt/vstrt
+COPY --link vsmlrt.py vs-mlrt/scripts/vsmlrt.py
 RUN bash -euxo pipefail <<EOF
 	mkdir -p TensorRT
 	tar xf tensorrt.tar.zst --strip-components=1 -C TensorRT
