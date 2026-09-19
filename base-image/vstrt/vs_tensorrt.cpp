@@ -680,7 +680,7 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin *plugin, const VSPLUGINAPI
     myself = plugin;
 
     vspapi->registerFunction("Model",
-        "clips:clip[];"
+        "clips:vnode[];"
         "engine_path:data;"
         "overlap:int[]:opt;"
         "tilesize:int[]:opt;"
