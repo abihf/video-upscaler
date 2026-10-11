@@ -7,7 +7,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	go.temporal.io/api v1.63.6
 	go.temporal.io/sdk v1.49.0
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	google.golang.org/grpc v1.84.0
 )
 
