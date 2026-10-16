@@ -33,7 +33,7 @@ FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev libzimg-dev libglib2.0-dev python3-pip
 
-ARG VAPOURSYNTH_VER=R80
+ARG VAPOURSYNTH_VER=R81
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -76,7 +76,7 @@ RUN bash <<EOF
 	rm -rf nv-codec-headers-${NV_CODEC_VER}
 EOF
 
-ARG FFMPEG_VER=n9.0.1
+ARG FFMPEG_VER=n9.0.2
 ADD --link https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz ffmpeg-${FFMPEG_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -165,7 +165,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get install --no-install-recommends -y cmake cuda-nvcc-${CUDA_VER} zstd
 EOF
 
-ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.6/TensorRT-RTX-1.6.1.120-Linux-x86_64-cuda-13.4-Release-external.tar.zst tensorrt.tar.zst
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.7/tensorrt-rtx-1.7.1.116-linux-x86_64-cuda-13.4-release-external.tar.zst tensorrt.tar.zst
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link vstrt vs-mlrt/vstrt
