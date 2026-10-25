@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	go.temporal.io/api v1.63.7
+	go.temporal.io/api v1.64.0
 	go.temporal.io/sdk v1.50.0
 	golang.org/x/sync v0.24.0
 	google.golang.org/grpc v1.84.0
