@@ -8,7 +8,7 @@ require (
 	go.temporal.io/api v1.63.7
 	go.temporal.io/sdk v1.50.0
 	golang.org/x/sync v0.24.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 )
 
 require (
