@@ -33,7 +33,7 @@ FROM dev AS vapoursynth
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y python3-dev libzimg-dev libglib2.0-dev python3-pip
 
-ARG VAPOURSYNTH_VER=R81
+ARG VAPOURSYNTH_VER=R82
 ADD --link https://github.com/vapoursynth/vapoursynth/archive/${VAPOURSYNTH_VER}.tar.gz vapoursynth-${VAPOURSYNTH_VER}.tar.gz
 
 RUN bash -euxo pipefail <<EOF
@@ -113,7 +113,7 @@ FROM dev AS bestsource
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked \
 	apt-get install -y meson libzimg-dev libxxhash-dev
 
-ARG BESTSOURCE_VER=R22
+ARG BESTSOURCE_VER=R23
 ADD --link --keep-git-dir=true https://github.com/vapoursynth/bestsource.git#${BESTSOURCE_VER} bestsource
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
@@ -156,7 +156,7 @@ EOF
 # ========================================================= #
 
 FROM dev AS vsmlrt
-ARG CUDA_VER=13-4
+ARG CUDA_VER=13-5
 RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail <<EOF
 	curl -LO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
 	dpkg -i cuda-keyring_1.1-1_all.deb
@@ -165,7 +165,7 @@ RUN --mount=target=/var/cache/apt,type=cache,sharing=locked bash -euxo pipefail 
 	apt-get install --no-install-recommends -y cmake cuda-nvcc-${CUDA_VER} zstd
 EOF
 
-ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.7/tensorrt-rtx-1.7.1.116-linux-x86_64-cuda-13.4-release-external.tar.zst tensorrt.tar.zst
+ADD --link https://developer.nvidia.com/downloads/trt/rtx_sdk/secure/1.8%20ea/tensorrt-rtx-1.8.1.40-linux-x86_64-cuda-13.5-release-external.tar.zst tensorrt.tar.zst
 
 COPY --link --from=vapoursynth /build/vapoursynth/ /
 COPY --link vstrt vs-mlrt/vstrt
